@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { projectAPI } from '../services/api';
 import { format } from 'date-fns';
+import SyncManager from './SyncManager';
 
 function ProjectList() {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [showSyncManager, setShowSyncManager] = useState(false);
 
   useEffect(() => {
     fetchProjects();
@@ -35,7 +37,16 @@ function ProjectList() {
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleSyncComplete = (syncType) => {
+    console.log(`Sync completed for: ${syncType}`);
+    // Optionally refresh projects or show a notification
+    fetchProjects();
+  };
+
+  const handleDelete = async (id, event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    
     if (window.confirm('Are you sure you want to delete this project?')) {
       try {
         await projectAPI.delete(id);
@@ -51,7 +62,35 @@ function ProjectList() {
   };
 
   const getPriorityLabel = (priority) => {
-    return priority.replace('_', ' ').toUpperCase();
+    const labels = {
+      'very_high': 'Urgent',
+      'high': 'High',
+      'medium': 'Medium',
+      'low': 'Low',
+      'very_low': 'Very Low'
+    };
+    return labels[priority] || 'Medium';
+  };
+
+  // Calculate project progress based on linked epics
+  const calculateProjectProgress = (project) => {
+    if (!project.jira_epics || project.jira_epics.length === 0) {
+      return 0;
+    }
+
+    const totalProgress = project.jira_epics.reduce((sum, epic) => {
+      return sum + (epic.progress || 0);
+    }, 0);
+
+    return Math.round(totalProgress / project.jira_epics.length);
+  };
+
+  const getProgressColor = (progress) => {
+    if (progress >= 80) return '#34c759';
+    if (progress >= 60) return '#007aff';
+    if (progress >= 40) return '#ff9500';
+    if (progress >= 20) return '#ff9500';
+    return '#ff3b30';
   };
 
   const sortedProjects = [...projects].sort((a, b) => {
@@ -62,161 +101,248 @@ function ProjectList() {
 
   if (loading) {
     return (
-      <div className="loading">
-        <div className="loading-spinner"></div>
-        <span>Loading projects...</span>
+      <div className="loading-container">
+        <div className="loading-card glass">
+          <div className="loading-spinner large"></div>
+          <h3>Loading your projects...</h3>
+          <p>Please wait while we fetch your project data</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="project-list">
-      <div className="page-header">
-        <h1>Projects</h1>
-        <div className="header-actions">
-          <button 
-            onClick={syncAllProgress} 
-            className="btn btn-secondary"
-            disabled={syncing}
-          >
-            {syncing ? (
-              <>
-                <span className="loading-spinner" style={{ width: '16px', height: '16px' }}></span>
-                Syncing...
-              </>
-            ) : (
-              <>
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                  <path d="M11.534 7h3.932a.25.25 0 0 1 .192.41l-1.966 2.36a.25.25 0 0 1-.384 0l-1.966-2.36a.25.25 0 0 1 .192-.41zm-11 2h3.932a.25.25 0 0 0 .192-.41L2.692 6.23a.25.25 0 0 0-.384 0L.342 8.59A.25.25 0 0 0 .534 9z"/>
-                  <path fillRule="evenodd" d="M8 3c-1.552 0-2.94.707-3.857 1.818a.5.5 0 1 1-.771-.636A6.002 6.002 0 0 1 13.917 7H12.9A5.002 5.002 0 0 0 8 3zM3.1 9a5.002 5.002 0 0 0 8.757 2.182.5.5 0 1 1 .771.636A6.002 6.002 0 0 1 2.083 9H3.1z"/>
-                </svg>
-                Sync Progress
-              </>
-            )}
-          </button>
-          <Link to="/new" className="btn btn-primary">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
-            </svg>
-            New Project
+    <div className="project-list-page">
+      {/* Hero Section */}
+      <div className="hero-section">
+        <div className="hero-content">
+          <h1 className="hero-title">Project Dashboard</h1>
+          <p className="hero-subtitle">
+            Manage and track your projects with integrated Jira and Confluence data
+          </p>
+        </div>
+        
+        {/* Stats Overview */}
+        <div className="stats-overview">
+          <div className="stat-card glass">
+            <div className="stat-icon">📊</div>
+            <div className="stat-content">
+              <div className="stat-number">{projects.length}</div>
+              <div className="stat-label">Total Projects</div>
+            </div>
+          </div>
+          <div className="stat-card glass">
+            <div className="stat-icon">🚀</div>
+            <div className="stat-content">
+              <div className="stat-number">
+                {projects.filter(p => p.priority === 'very_high' || p.priority === 'high').length}
+              </div>
+              <div className="stat-label">High Priority</div>
+            </div>
+          </div>
+          <div className="stat-card glass">
+            <div className="stat-icon">✅</div>
+            <div className="stat-content">
+              <div className="stat-number">
+                {projects.filter(p => calculateProjectProgress(p) >= 80).length}
+              </div>
+              <div className="stat-label">Near Completion</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Action Cards Section */}
+      <div className="action-section">
+        <div className="action-cards">
+          {/* Sync Card */}
+          <div className="sync-card glass" onClick={syncAllProgress}>
+            <div className="sync-card-content">
+              <div className="sync-icon-container">
+                {syncing ? (
+                  <div className="loading-spinner"></div>
+                ) : (
+                  <span style={{ fontSize: '32px' }}>🔄</span>
+                )}
+              </div>
+              <div className="sync-text">
+                <h3>{syncing ? 'Syncing Progress...' : 'Sync All Projects'}</h3>
+                <p>
+                  {syncing 
+                    ? 'Updating progress from Jira epics and issues'
+                    : 'Update progress data from Jira for all projects'
+                  }
+                </p>
+              </div>
+              <div className="sync-arrow">
+                <span style={{ fontSize: '24px' }}>→</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Data Sync Manager Card */}
+          <div className="sync-card glass" onClick={() => setShowSyncManager(!showSyncManager)}>
+            <div className="sync-card-content">
+              <div className="sync-icon-container">
+                <span style={{ fontSize: '32px' }}>🔄</span>
+              </div>
+              <div className="sync-text">
+                <h3>Data Sync Manager</h3>
+                <p>Manage Jira ideas and epics synchronization</p>
+              </div>
+              <div className="sync-arrow">
+                <span style={{ fontSize: '24px' }}>{showSyncManager ? '↑' : '↓'}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Create Project Card */}
+          <Link to="/new" className="create-card glass">
+            <div className="create-card-content">
+              <div className="create-icon-container">
+                <span style={{ fontSize: '32px' }}>➕</span>
+              </div>
+              <div className="create-text">
+                <h3>Create New Project</h3>
+                <p>Start a new project with integrated tracking</p>
+              </div>
+              <div className="create-arrow">
+                <span style={{ fontSize: '24px' }}>→</span>
+              </div>
+            </div>
           </Link>
         </div>
       </div>
 
-      {projects.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-state-icon">
-            <svg width="64" height="64" viewBox="0 0 64 64" fill="currentColor">
-              <path d="M36 6H16c-1.1 0-2 .9-2 2v40c0 1.1.9 2 2 2h32c1.1 0 2-.9 2-2V20L36 6z"/>
-              <path d="M36 6v14h14"/>
-            </svg>
-          </div>
-          <h3>No projects yet</h3>
-          <p>Create your first project to get started</p>
-          <Link to="/new" className="btn btn-primary">Create Project</Link>
-        </div>
-      ) : (
-        <div className="projects-grid">
-          {sortedProjects.map(project => (
-            <div key={project.id} className="project-card">
-              <div className={`project-priority-bar ${getPriorityClass(project.priority)}`}></div>
-              
-              <div className="project-card-content">
-                <div className="project-header">
-                  <h3 className="project-title">{project.title}</h3>
-                  <span className={`project-priority-badge ${getPriorityClass(project.priority)}`}>
-                    {getPriorityLabel(project.priority)}
-                  </span>
-                </div>
-
-                <p className="project-description">
-                  {project.description || 'No description provided'}
-                </p>
-
-                <div className="project-dates">
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                    <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/>
-                  </svg>
-                  <span>
-                    {format(new Date(project.start_date), 'MMM d')} - 
-                    {format(new Date(project.end_date), 'MMM d, yyyy')}
-                  </span>
-                </div>
-
-                {project.total_progress !== undefined && (
-                  <div className="project-progress">
-                    <div className="progress-header">
-                      <span className="progress-label">Progress</span>
-                      <span className="progress-value">{project.total_progress}%</span>
-                    </div>
-                    <div className="progress-bar-container">
-                      <div 
-                        className="progress-bar-fill" 
-                        style={{ width: `${project.total_progress}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                )}
-
-                <div className="project-stats">
-                  <div className="stat-item">
-                    <div className="stat-icon">
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                        <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5l2.404.961L10.404 2l-2.218-.887zm3.564 1.426L5.596 5 8 5.961 14.154 3.5l-2.404-.961zm3.25 1.7-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z"/>
-                      </svg>
-                    </div>
-                    <span>
-                      <span className="stat-value">{project.jira_epics?.length || 0}</span> Epics
-                    </span>
-                  </div>
-                  <div className="stat-item">
-                    <div className="stat-icon">
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                        <path d="M9.669.864 8 0 6.331.864l-1.858.282-.842 1.68-1.337 1.32L2.6 6l-.306 1.854 1.337 1.32.842 1.68 1.858.282L8 12l1.669-.864 1.858-.282.842-1.68 1.337-1.32L13.4 6l.306-1.854-1.337-1.32-.842-1.68L9.669.864zm1.196 1.193.684 1.365 1.086 1.072L12.387 6l.248 1.506-1.086 1.072-.684 1.365-1.51.229L8 10.874l-1.355-.702-1.51-.229-.684-1.365-1.086-1.072L3.614 6l-.25-1.506 1.087-1.072.684-1.365 1.51-.229L8 1.126l1.356.702 1.509.229z"/>
-                      </svg>
-                    </div>
-                    <span>
-                      <span className="stat-value">{project.jira_ideas?.length || 0}</span> Ideas
-                    </span>
-                  </div>
-                  <div className="stat-item">
-                    <div className="stat-icon">
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                        <path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5L14 4.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5h-2z"/>
-                      </svg>
-                    </div>
-                    <span>
-                      <span className="stat-value">{project.confluence_pages?.length || 0}</span> Docs
-                    </span>
-                  </div>
-                  <div className="stat-item">
-                    <div className="stat-icon">
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                        <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
-                      </svg>
-                    </div>
-                    <span>
-                      <span className="stat-value">{project.developers?.length || 0}</span> Team
-                    </span>
-                  </div>
-                </div>
-
-                <div className="project-actions">
-                  <Link to={`/projects/${project.id}`} className="btn btn-secondary" style={{ flex: 1 }}>
-                    View Details
-                  </Link>
-                  <button onClick={() => handleDelete(project.id)} className="btn btn-danger btn-sm">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                      <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
-                      <path fillRule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
+      {/* Sync Manager */}
+      {showSyncManager && (
+        <div className="sync-manager-section">
+          <SyncManager onSyncComplete={handleSyncComplete} />
         </div>
       )}
+
+      {/* Projects Section */}
+      <div className="projects-section">
+        <div className="section-header">
+          <h2>Your Projects</h2>
+          <div className="project-count">
+            {projects.length} {projects.length === 1 ? 'project' : 'projects'}
+          </div>
+        </div>
+
+        {projects.length === 0 ? (
+          <div className="empty-state glass">
+            <div className="empty-state-content">
+              <div className="empty-state-icon">
+                <span style={{ fontSize: '80px' }}>📋</span>
+              </div>
+              <h3>No projects yet</h3>
+              <p>Create your first project to start organizing your work with integrated Jira and Confluence tracking</p>
+              <Link to="/new" className="btn btn-primary btn-large">
+                <span>➕</span>
+                Create Your First Project
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div className="projects-grid">
+            {sortedProjects.map(project => {
+              const projectProgress = calculateProjectProgress(project);
+              
+              return (
+                <Link 
+                  key={project.id} 
+                  to={`/projects/${project.id}`}
+                  className="project-card glass"
+                  data-priority={project.priority}
+                >
+                  <div className="project-card-header">
+                    <div className="project-title-section">
+                      <h3 className="project-title">{project.title}</h3>
+                      <span className={`priority-badge ${getPriorityClass(project.priority)}`}>
+                        {getPriorityLabel(project.priority)}
+                      </span>
+                    </div>
+                    <button 
+                      onClick={(e) => handleDelete(project.id, e)} 
+                      className="delete-btn"
+                      title="Delete project"
+                    >
+                      <span>❌</span>
+                    </button>
+                  </div>
+
+                  <p className="project-description">
+                    {project.description || 'No description provided'}
+                  </p>
+
+                  <div className="project-meta">
+                    <div className="project-dates">
+                      <span style={{ fontSize: '16px' }}>📅</span>
+                      <span>
+                        {format(new Date(project.start_date), 'MMM d')} - 
+                        {format(new Date(project.end_date), 'MMM d, yyyy')}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="progress-section">
+                    <div className="progress-header">
+                      <span className="progress-label">Progress</span>
+                      <span className="progress-value">{projectProgress}%</span>
+                    </div>
+                    <div className="progress-bar">
+                      <div 
+                        className="progress-fill" 
+                        style={{ 
+                          width: `${projectProgress}%`,
+                          backgroundColor: getProgressColor(projectProgress)
+                        }}
+                      ></div>
+                    </div>
+                    {project.jira_epics && project.jira_epics.length > 0 && (
+                      <div className="progress-source">
+                        Based on {project.jira_epics.length} linked epic{project.jira_epics.length !== 1 ? 's' : ''}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="project-stats">
+                    <div className="stat-item">
+                      <div className="stat-icon">
+                        <span style={{ fontSize: '16px' }}>🎯</span>
+                      </div>
+                      <span className="stat-count">{project.jira_epics?.length || 0}</span>
+                      <span className="stat-label">Epics</span>
+                    </div>
+                    <div className="stat-item">
+                      <div className="stat-icon">
+                        <span style={{ fontSize: '16px' }}>💡</span>
+                      </div>
+                      <span className="stat-count">{project.jira_ideas?.length || 0}</span>
+                      <span className="stat-label">Ideas</span>
+                    </div>
+                    <div className="stat-item">
+                      <div className="stat-icon">
+                        <span style={{ fontSize: '16px' }}>📚</span>
+                      </div>
+                      <span className="stat-count">{project.confluence_pages?.length || 0}</span>
+                      <span className="stat-label">Docs</span>
+                    </div>
+                    <div className="stat-item">
+                      <div className="stat-icon">
+                        <span style={{ fontSize: '16px' }}>👥</span>
+                      </div>
+                      <span className="stat-count">{project.developers?.length || 0}</span>
+                      <span className="stat-label">Team</span>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

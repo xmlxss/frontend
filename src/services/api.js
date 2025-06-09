@@ -98,6 +98,12 @@ export const jiraAPI = {
   // Get idea/epic by key
   getIdeaByKey: (key) => api.get(`/jira/ideas/${key}`),
   getEpicByKey: (key) => api.get(`/jira/epics/${key}`),
+  
+  // Sync endpoints
+  syncIdeas: () => api.post('/jira/sync/ideas'),
+  syncEpics: () => api.post('/jira/sync/epics'),
+  syncAll: () => api.post('/jira/sync/all'),
+  getSyncStatus: () => api.get('/jira/sync/status'),
 };
 
 export const confluenceAPI = {
@@ -142,6 +148,10 @@ export const confluenceAPI = {
   
   // Get page by ID
   getPageById: (id) => api.get(`/confluence/pages/${id}`),
+  
+  // Sync endpoints
+  syncPages: (spaceKey = 'FD') => api.post('/confluence/sync/pages', { spaceKey }),
+  getSyncStatus: () => api.get('/confluence/sync/status'),
 };
 
 export const teamsAPI = {

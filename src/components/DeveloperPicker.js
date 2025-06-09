@@ -2,20 +2,19 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { teamsAPI, debounce } from '../services/api';
 
 function DeveloperPicker({ selectedDevelopers, onUpdate }) {
-  const [allDevelopers, setAllDevelopers] = useState([]); // Store all developers
-  const [displayedDevelopers, setDisplayedDevelopers] = useState([]); // Filtered developers to display
+  const [allDevelopers, setAllDevelopers] = useState([]);
+  const [displayedDevelopers, setDisplayedDevelopers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState(selectedDevelopers);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTeam, setActiveTeam] = useState('all'); // Filter by team
-  const [availableTeams, setAvailableTeams] = useState([]); // List of unique teams
+  const [activeTeam, setActiveTeam] = useState('all');
+  const [availableTeams, setAvailableTeams] = useState([]);
 
   useEffect(() => {
     fetchDevelopers();
   }, []);
 
   useEffect(() => {
-    // Filter developers based on search query and active team
     filterDevelopers();
   }, [searchQuery, activeTeam, allDevelopers]);
 
@@ -33,7 +32,6 @@ function DeveloperPicker({ selectedDevelopers, onUpdate }) {
         if (dev.primary_team && dev.primary_team !== 'No Team Assigned') {
           teams.add(dev.primary_team);
         }
-        // Also add individual teams
         dev.teams?.forEach(team => teams.add(team));
       });
       setAvailableTeams(Array.from(teams).sort());
@@ -49,14 +47,12 @@ function DeveloperPicker({ selectedDevelopers, onUpdate }) {
   const filterDevelopers = () => {
     let filtered = [...allDevelopers];
 
-    // Apply team filter
     if (activeTeam !== 'all') {
       filtered = filtered.filter(dev => 
         dev.teams?.includes(activeTeam) || dev.primary_team === activeTeam
       );
     }
 
-    // Apply search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(dev => 
@@ -70,7 +66,6 @@ function DeveloperPicker({ selectedDevelopers, onUpdate }) {
     setDisplayedDevelopers(filtered);
   };
 
-  // Debounced search handler
   const debouncedSearch = useCallback(
     debounce((query) => {
       setSearchQuery(query);
@@ -102,7 +97,6 @@ function DeveloperPicker({ selectedDevelopers, onUpdate }) {
   };
 
   const getTeamColor = (team) => {
-    // Generate consistent color based on team name
     const colors = [
       'var(--accent-blue)',
       'var(--accent-green)',
@@ -120,45 +114,77 @@ function DeveloperPicker({ selectedDevelopers, onUpdate }) {
     return colors[Math.abs(hash) % colors.length];
   };
 
+  const getInitials = (name) => {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  };
+
   return (
     <div className="developer-picker fade-in">
       <div className="picker-header">
-        <h2>Team Members</h2>
-        <span className="picker-subtitle">{allDevelopers.length} total members</span>
+        <div className="picker-title-section">
+          <h2>Team Members</h2>
+          <span className="picker-subtitle">
+            {allDevelopers.length} total members • {availableTeams.length} teams
+          </span>
+        </div>
+        <div className="picker-actions">
+          <button 
+            onClick={fetchDevelopers} 
+            className="btn btn-secondary"
+            disabled={loading}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path d="M23 4v6h-6M1 20v-6h6" stroke="currentColor" strokeWidth="2"/>
+              <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15" stroke="currentColor" strokeWidth="2"/>
+            </svg>
+            Refresh
+          </button>
+        </div>
       </div>
       
       <div className="search-section">
-        <input
-          type="text"
-          placeholder="Search by name, email, or team..."
-          onChange={handleSearch}
-          className="search-input"
-        />
+        <div className="search-input-container">
+          <svg className="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2"/>
+            <path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="2"/>
+          </svg>
+          <input
+            type="text"
+            placeholder="Search by name, email, or team..."
+            onChange={handleSearch}
+            className="search-input"
+          />
+        </div>
         
         <div className="filter-tabs">
           <button 
             className={`filter-tab ${activeTeam === 'all' ? 'active' : ''}`}
             onClick={() => setActiveTeam('all')}
           >
+            <span className="filter-icon">👥</span>
             All Teams
           </button>
-          {availableTeams.slice(0, 5).map(team => (
+          {availableTeams.slice(0, 4).map(team => (
             <button 
               key={team}
               className={`filter-tab ${activeTeam === team ? 'active' : ''}`}
               onClick={() => setActiveTeam(team)}
             >
+              <span 
+                className="team-color-dot"
+                style={{ backgroundColor: getTeamColor(team) }}
+              ></span>
               {team}
             </button>
           ))}
-          {availableTeams.length > 5 && (
+          {availableTeams.length > 4 && (
             <select 
-              className="filter-tab"
+              className="filter-tab select-tab"
               value={activeTeam}
               onChange={(e) => setActiveTeam(e.target.value)}
             >
               <option value="">More Teams...</option>
-              {availableTeams.slice(5).map(team => (
+              {availableTeams.slice(4).map(team => (
                 <option key={team} value={team}>{team}</option>
               ))}
             </select>
@@ -168,21 +194,42 @@ function DeveloperPicker({ selectedDevelopers, onUpdate }) {
 
       {selected.length > 0 && (
         <div className="selected-items glass">
-          <h3>
-            <span className="icon">👥</span>
-            Assigned Members ({selected.length})
-          </h3>
-          <div className="developer-grid">
+          <div className="selected-header">
+            <h3>
+              <span className="icon">👥</span>
+              Assigned Members
+              <span className="count-badge">{selected.length}</span>
+            </h3>
+            <button 
+              className="clear-all-btn"
+              onClick={() => {
+                setSelected([]);
+                onUpdate([]);
+              }}
+            >
+              Clear All
+            </button>
+          </div>
+          <div className="developer-grid selected-grid">
             {selected.map(developer => (
               <div key={developer.id} className="developer-card selected glass">
-                <img 
-                  src={developer.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(developer.name)}&background=random`} 
-                  alt={developer.name} 
-                  className="developer-avatar" 
-                />
+                <div className="developer-avatar-container">
+                  {developer.avatar ? (
+                    <img 
+                      src={developer.avatar} 
+                      alt={developer.name} 
+                      className="developer-avatar" 
+                    />
+                  ) : (
+                    <div className="developer-avatar-fallback">
+                      {getInitials(developer.name)}
+                    </div>
+                  )}
+                  <div className="online-indicator"></div>
+                </div>
                 <div className="developer-info">
-                  <h4>{developer.name}</h4>
-                  <p>{developer.email}</p>
+                  <h4 className="developer-name">{developer.name}</h4>
+                  <p className="developer-email">{developer.email}</p>
                   <div className="developer-teams">
                     {developer.primary_team && developer.primary_team !== 'No Team Assigned' && (
                       <span 
@@ -193,10 +240,14 @@ function DeveloperPicker({ selectedDevelopers, onUpdate }) {
                           borderColor: getTeamColor(developer.primary_team) 
                         }}
                       >
+                        <span 
+                          className="team-color-dot"
+                          style={{ backgroundColor: getTeamColor(developer.primary_team) }}
+                        ></span>
                         {developer.primary_team}
                       </span>
                     )}
-                    {developer.teams?.filter(team => team !== developer.primary_team).map((team, index) => (
+                    {developer.teams?.filter(team => team !== developer.primary_team).slice(0, 2).map((team, index) => (
                       <span 
                         key={index}
                         className="team-badge"
@@ -206,12 +257,24 @@ function DeveloperPicker({ selectedDevelopers, onUpdate }) {
                           borderColor: getTeamColor(team) 
                         }}
                       >
+                        <span 
+                          className="team-color-dot"
+                          style={{ backgroundColor: getTeamColor(team) }}
+                        ></span>
                         {team}
                       </span>
                     ))}
+                    {developer.teams?.length > 3 && (
+                      <span className="team-badge more">+{developer.teams.length - 3}</span>
+                    )}
                   </div>
                 </div>
-                <button onClick={() => toggleDeveloper(developer)} className="remove-btn">×</button>
+                <button onClick={() => toggleDeveloper(developer)} className="remove-btn">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                    <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" strokeWidth="2"/>
+                    <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" strokeWidth="2"/>
+                  </svg>
+                </button>
               </div>
             ))}
           </div>
@@ -223,21 +286,31 @@ function DeveloperPicker({ selectedDevelopers, onUpdate }) {
           <h3>
             {activeTeam === 'all' ? 'All Team Members' : `Team: ${activeTeam}`}
           </h3>
-          <span className="items-count">
-            {displayedDevelopers.filter(dev => !isDeveloperSelected(dev)).length} available
-          </span>
+          <div className="items-actions">
+            <span className="items-count">
+              {displayedDevelopers.filter(dev => !isDeveloperSelected(dev)).length} available
+            </span>
+          </div>
         </div>
         
         {loading ? (
-          <div className="loading">
+          <div className="loading-state">
             <div className="loading-spinner"></div>
-            <span>Loading team members...</span>
+            <h4>Loading team members...</h4>
+            <p>Fetching member data from Teams</p>
           </div>
         ) : (
           <div className="developer-grid">
             {displayedDevelopers.length === 0 ? (
-              <div className="empty-state">
-                <p>No team members found matching your search.</p>
+              <div className="empty-state-inline">
+                <div className="empty-icon">
+                  <svg width="48\" height="48\" viewBox="0 0 24 24\" fill="none">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2\" stroke="currentColor\" strokeWidth="2"/>
+                    <circle cx="12\" cy="7\" r="4\" stroke="currentColor\" strokeWidth="2"/>
+                  </svg>
+                </div>
+                <h4>No team members found</h4>
+                <p>No team members match your current search and filters.</p>
               </div>
             ) : (
               displayedDevelopers.filter(dev => !isDeveloperSelected(dev)).map(developer => (
@@ -246,13 +319,22 @@ function DeveloperPicker({ selectedDevelopers, onUpdate }) {
                   className="developer-card glass" 
                   onClick={() => toggleDeveloper(developer)}
                 >
-                  <img 
-                    src={developer.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(developer.name)}&background=random`} 
-                    alt={developer.name} 
-                    className="developer-avatar" 
-                  />
+                  <div className="developer-avatar-container">
+                    {developer.avatar ? (
+                      <img 
+                        src={developer.avatar} 
+                        alt={developer.name} 
+                        className="developer-avatar" 
+                      />
+                    ) : (
+                      <div className="developer-avatar-fallback">
+                        {getInitials(developer.name)}
+                      </div>
+                    )}
+                    <div className="online-indicator"></div>
+                  </div>
                   <div className="developer-info">
-                    <h4>{developer.name}</h4>
+                    <h4 className="developer-name">{developer.name}</h4>
                     <p className="developer-email">{developer.email}</p>
                     <div className="developer-teams">
                       {developer.primary_team && developer.primary_team !== 'No Team Assigned' && (
@@ -264,6 +346,10 @@ function DeveloperPicker({ selectedDevelopers, onUpdate }) {
                             borderColor: getTeamColor(developer.primary_team) 
                           }}
                         >
+                          <span 
+                            className="team-color-dot"
+                            style={{ backgroundColor: getTeamColor(developer.primary_team) }}
+                          ></span>
                           {developer.primary_team}
                         </span>
                       )}
@@ -277,6 +363,10 @@ function DeveloperPicker({ selectedDevelopers, onUpdate }) {
                             borderColor: getTeamColor(team) 
                           }}
                         >
+                          <span 
+                            className="team-color-dot"
+                            style={{ backgroundColor: getTeamColor(team) }}
+                          ></span>
                           {team}
                         </span>
                       ))}
@@ -285,7 +375,15 @@ function DeveloperPicker({ selectedDevelopers, onUpdate }) {
                       )}
                     </div>
                   </div>
-                  <button className="btn btn-sm btn-primary">Add</button>
+                  <div className="developer-actions">
+                    <button className="btn btn-primary btn-sm">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                        <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" strokeWidth="2"/>
+                        <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" strokeWidth="2"/>
+                      </svg>
+                      Add Member
+                    </button>
+                  </div>
                 </div>
               ))
             )}

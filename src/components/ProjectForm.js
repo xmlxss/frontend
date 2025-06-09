@@ -15,11 +15,11 @@ function ProjectForm() {
   const [errors, setErrors] = useState({});
 
   const priorities = [
-    { value: 'very_high', label: 'Very High', color: '#00693e' },
-    { value: 'high', label: 'High', color: '#00875a' },
-    { value: 'medium', label: 'Medium', color: '#36b37e' },
-    { value: 'low', label: 'Low', color: '#57d9a3' },
-    { value: 'very_low', label: 'Very Low', color: '#79f2c0' }
+    { value: 'very_high', label: 'Urgent', color: '#00693e', description: 'Critical priority' },
+    { value: 'high', label: 'High', color: '#00875a', description: 'Important work' },
+    { value: 'medium', label: 'Medium', color: '#36b37e', description: 'Standard priority' },
+    { value: 'low', label: 'Low', color: '#57d9a3', description: 'Nice to have' },
+    { value: 'very_low', label: 'Very Low', color: '#79f2c0', description: 'Future consideration' }
   ];
 
   const handleChange = (e) => {
@@ -40,7 +40,7 @@ function ProjectForm() {
     const newErrors = {};
     
     if (!formData.title.trim()) {
-      newErrors.title = 'Title is required';
+      newErrors.title = 'Project title is required';
     }
     
     if (!formData.start_date) {
@@ -82,12 +82,17 @@ function ProjectForm() {
   return (
     <div className="project-form-container">
       <div className="form-card">
-        <h1>Create New Project</h1>
-        <p className="form-subtitle">Define a new project and set its priority</p>
+        <div className="form-header">
+          <h1>Create New Project</h1>
+          <p className="form-subtitle">Define a new project and set its priority level</p>
+        </div>
         
         <form onSubmit={handleSubmit} className="project-form">
           <div className="form-group">
-            <label htmlFor="title">Project Title *</label>
+            <label htmlFor="title">
+              <span className="label-icon">📝</span>
+              Project Title *
+            </label>
             <input
               type="text"
               id="title"
@@ -97,33 +102,53 @@ function ProjectForm() {
               className={errors.title ? 'error' : ''}
               placeholder="Enter a descriptive project title"
             />
-            {errors.title && <span className="error-message">{errors.title}</span>}
+            {errors.title && (
+              <span className="error-message">
+                <span className="error-icon">⚠️</span>
+                {errors.title}
+              </span>
+            )}
           </div>
           
           <div className="form-group">
-            <label htmlFor="description">Description</label>
+            <label htmlFor="description">
+              <span className="label-icon">📄</span>
+              Description
+            </label>
             <textarea
               id="description"
               name="description"
               value={formData.description}
               onChange={handleChange}
               rows="4"
-              placeholder="Describe the project goals and objectives"
+              placeholder="Describe the project goals, objectives, and key deliverables"
             />
           </div>
           
           <div className="form-group">
-            <label htmlFor="priority">Priority Level *</label>
+            <label htmlFor="priority">
+              <span className="label-icon">🎯</span>
+              Priority Level *
+            </label>
             <div className="priority-selector">
               {priorities.map(priority => (
                 <div 
                   key={priority.value}
                   className={`priority-option ${formData.priority === priority.value ? 'selected' : ''}`}
                   onClick={() => setFormData({ ...formData, priority: priority.value })}
-                  style={{ '--priority-color': priority.color }}
+                  style={{ 
+                    '--priority-color': priority.color,
+                    '--priority-color-rgb': priority.color.replace('#', '').match(/.{2}/g).map(x => parseInt(x, 16)).join(', ')
+                  }}
                 >
                   <div className="priority-color-bar" style={{ backgroundColor: priority.color }}></div>
-                  <span className="priority-label">{priority.label}</span>
+                  <div className="priority-content">
+                    <div className="priority-label">{priority.label}</div>
+                    <div className="priority-description">{priority.description}</div>
+                  </div>
+                  <div className="priority-check">
+                    {formData.priority === priority.value && <span>✅</span>}
+                  </div>
                 </div>
               ))}
             </div>
@@ -131,7 +156,10 @@ function ProjectForm() {
           
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="start_date">Start Date *</label>
+              <label htmlFor="start_date">
+                <span className="label-icon">📅</span>
+                Start Date *
+              </label>
               <input
                 type="date"
                 id="start_date"
@@ -140,11 +168,19 @@ function ProjectForm() {
                 onChange={handleChange}
                 className={errors.start_date ? 'error' : ''}
               />
-              {errors.start_date && <span className="error-message">{errors.start_date}</span>}
+              {errors.start_date && (
+                <span className="error-message">
+                  <span className="error-icon">⚠️</span>
+                  {errors.start_date}
+                </span>
+              )}
             </div>
             
             <div className="form-group">
-              <label htmlFor="end_date">End Date *</label>
+              <label htmlFor="end_date">
+                <span className="label-icon">🏁</span>
+                End Date *
+              </label>
               <input
                 type="date"
                 id="end_date"
@@ -153,23 +189,31 @@ function ProjectForm() {
                 onChange={handleChange}
                 className={errors.end_date ? 'error' : ''}
               />
-              {errors.end_date && <span className="error-message">{errors.end_date}</span>}
+              {errors.end_date && (
+                <span className="error-message">
+                  <span className="error-icon">⚠️</span>
+                  {errors.end_date}
+                </span>
+              )}
             </div>
           </div>
           
           <div className="form-actions">
-            <button type="button" className="btn btn-secondary" onClick={() => navigate('/')}>
+            <button 
+              type="button" 
+              className="btn btn-secondary" 
+              onClick={() => navigate('/')}
+            >
+              <span>❌</span>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary" disabled={loading}>
-              {loading ? (
-                <>
-                  <span className="loading-spinner" style={{ width: '16px', height: '16px' }}></span>
-                  Creating...
-                </>
-              ) : (
-                'Create Project'
-              )}
+            <button 
+              type="submit" 
+              className={`btn btn-primary ${loading ? 'loading' : ''}`} 
+              disabled={loading}
+            >
+              {!loading && <span>✅</span>}
+              {loading ? 'Creating Project...' : 'Create Project'}
             </button>
           </div>
         </form>
