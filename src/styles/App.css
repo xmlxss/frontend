@@ -2781,10 +2781,6 @@ body {
   background: var(--bg-tertiary);
 }
 
-/* Developer Picker Specific Styles */
-.developer-picker {
-  /* Inherits from base picker styles */
-}
 
 .developer-grid {
   display: grid;
