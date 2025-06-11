@@ -492,6 +492,7 @@ function ProjectPriorityManager({ projects, onUpdate, onClose }) {
               disabled={!hasChanges || loading}
             >
               {!loading && <span>✅</span>}
+              }
               {loading ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
