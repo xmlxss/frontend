@@ -355,7 +355,7 @@ function ProjectsTimeline() {
         </div>
       </div>
 
-      {/* MAIN GANTT CHART - The Star of the Show */}
+      {/* PURE GANTT CHART - Chart Only, No Columns */}
       {filteredProjects.length === 0 ? (
         <div className="empty-state glass">
           <div className="empty-state-content">
@@ -381,7 +381,7 @@ function ProjectsTimeline() {
           <div className="gantt-header">
             <h2>
               <span className="gantt-icon">📊</span>
-              Interactive Project Gantt Chart
+              Pure Gantt Chart Visualization
             </h2>
             <div className="gantt-info">
               <div className="info-badges">
@@ -410,7 +410,7 @@ function ProjectsTimeline() {
               tasks={ganttTasks}
               viewMode={viewMode}
               onDoubleClick={handleTaskClick}
-              listCellWidth="0px"
+              listCellWidth=""
               columnWidth={
                 viewMode === ViewMode.Month ? 350 : 
                 viewMode === ViewMode.Week ? 300 : 
