@@ -41,26 +41,28 @@
   color: var(--text-inverse);
   position: relative;
   overflow: hidden;
+  border: 3px solid transparent;
 }
 
+/* Priority-based border colors only */
 .project-hero[data-priority="very_high"] {
-  background: linear-gradient(135deg, #ff3b30 0%, #ff6b6b 100%);
+  border-color: #ff3b30;
 }
 
 .project-hero[data-priority="high"] {
-  background: linear-gradient(135deg, #ff9500 0%, #ffb347 100%);
+  border-color: #ff9500;
 }
 
 .project-hero[data-priority="medium"] {
-  background: linear-gradient(135deg, #007aff 0%, #4da6ff 100%);
+  border-color: #007aff;
 }
 
 .project-hero[data-priority="low"] {
-  background: linear-gradient(135deg, #34c759 0%, #66d98a 100%);
+  border-color: #34c759;
 }
 
 .project-hero[data-priority="very_low"] {
-  background: linear-gradient(135deg, #5ac8fa 0%, #8dd9fb 100%);
+  border-color: #5ac8fa;
 }
 
 .project-hero-content {
@@ -273,6 +275,62 @@
 
 .savings-icon {
   font-size: var(--font-size-md);
+}
+
+/* Business Days Summary */
+.business-days-summary {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+.business-days-info {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-md);
+}
+
+.business-days-icon {
+  font-size: var(--font-size-xl);
+  color: rgba(255, 255, 255, 0.8);
+  flex-shrink: 0;
+}
+
+.business-days-content {
+  flex: 1;
+}
+
+.business-days-main {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+}
+
+.business-days-main strong {
+  font-size: var(--font-size-lg);
+  color: var(--text-inverse);
+}
+
+.duration-text {
+  font-size: var(--font-size-sm);
+  color: rgba(255, 255, 255, 0.7);
+  font-style: italic;
+}
+
+.business-days-breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-md);
+  font-size: var(--font-size-sm);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.business-days-breakdown span {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
 }
 
 /* Epic Progress Breakdown */
@@ -687,6 +745,19 @@
 
 .cost-detail-value.negative {
   color: var(--error-color);
+}
+
+.business-days-note {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin-top: var(--spacing-sm);
+}
+
+.note-icon {
+  font-size: var(--font-size-sm);
 }
 
 /* Progress Stats */
@@ -1116,5 +1187,10 @@
   
   .cost-details-grid {
     grid-template-columns: 1fr;
+  }
+  
+  .business-days-breakdown {
+    flex-direction: column;
+    gap: var(--spacing-sm);
   }
 }
