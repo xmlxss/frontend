@@ -719,6 +719,23 @@
   color: var(--text-primary);
 }
 
+.cost-note {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  margin-top: var(--spacing-xs);
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+.note-icon {
+  font-size: var(--font-size-sm);
+}
+
+.note-text {
+  font-weight: 500;
+}
+
 /* Project Stats */
 .project-stats {
   display: grid;

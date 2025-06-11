@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { projectAPI } from '../services/api';
+import { calculateProjectCost, getBusinessDaysDescription, formatProjectDuration, getCommonHolidays } from '../utils/dateUtils';
 import '../styles/ProjectForm.css';
 
 function ProjectForm() {
@@ -96,16 +97,36 @@ function ProjectForm() {
 
   const calculateEstimatedCost = () => {
     if (!formData.start_date || !formData.end_date || !formData.max_team_members) {
-      return 0;
+      return { cost: 0, businessDays: 0, description: '' };
     }
 
-    const startDate = new Date(formData.start_date);
-    const endDate = new Date(formData.end_date);
-    const timeDiff = endDate.getTime() - startDate.getTime();
-    const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1;
+    // Get current year's holidays
+    const currentYear = new Date().getFullYear();
+    const holidays = getCommonHolidays(currentYear);
+    
+    const cost = calculateProjectCost(
+      formData.start_date, 
+      formData.end_date, 
+      formData.max_team_members, 
+      100, 
+      4, 
+      holidays
+    );
+    
+    const businessDaysInfo = getBusinessDaysDescription(
+      formData.start_date, 
+      formData.end_date, 
+      holidays
+    );
 
-    // Cost calculation: team members × 4 hours/day × days × €100/hour
-    return formData.max_team_members * 4 * daysDiff * 100;
+    return {
+      cost,
+      businessDays: businessDaysInfo.businessDays,
+      description: businessDaysInfo.description,
+      totalDays: businessDaysInfo.totalDays,
+      weekendDays: businessDaysInfo.weekendDays,
+      holidays: businessDaysInfo.holidays
+    };
   };
 
   const getTeamSizeRecommendation = () => {
@@ -138,7 +159,7 @@ function ProjectForm() {
     }
   };
 
-  const estimatedCost = calculateEstimatedCost();
+  const costEstimation = calculateEstimatedCost();
   const recommendation = getTeamSizeRecommendation();
 
   return (
@@ -146,7 +167,7 @@ function ProjectForm() {
       <div className="form-card">
         <div className="form-header">
           <h1>Create New Project</h1>
-          <p className="form-subtitle">Define a new project with team size and cost estimation</p>
+          <p className="form-subtitle">Define a new project with team size and cost estimation based on business days</p>
         </div>
         
         <form onSubmit={handleSubmit} className="project-form">
@@ -315,26 +336,54 @@ function ProjectForm() {
             </div>
           </div>
 
-          {estimatedCost > 0 && (
+          {costEstimation.cost > 0 && (
             <div className="cost-estimation-card">
               <div className="cost-header">
                 <span className="cost-icon">💰</span>
                 <h3>Estimated Project Cost</h3>
               </div>
               <div className="cost-breakdown">
+                <div className="business-days-info">
+                  <div className="business-days-summary">
+                    <span className="business-days-icon">📅</span>
+                    <div className="business-days-content">
+                      <div className="business-days-main">
+                        <strong>{costEstimation.businessDays} business days</strong>
+                        <span className="duration-text">
+                          ({formatProjectDuration(formData.start_date, formData.end_date)})
+                        </span>
+                      </div>
+                      <div className="business-days-breakdown">
+                        <span className="breakdown-item">
+                          📊 {costEstimation.totalDays} total days
+                        </span>
+                        <span className="breakdown-item">
+                          🚫 {costEstimation.weekendDays} weekend days excluded
+                        </span>
+                        {costEstimation.holidays > 0 && (
+                          <span className="breakdown-item">
+                            🎉 {costEstimation.holidays} holidays excluded
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
                 <div className="cost-calculation">
                   <span className="cost-formula">
-                    {formData.max_team_members} members × 4 hours/day × {Math.ceil((new Date(formData.end_date) - new Date(formData.start_date)) / (1000 * 60 * 60 * 24)) + 1} days × €100/hour
+                    {formData.max_team_members} members × 4 hours/day × {costEstimation.businessDays} business days × €100/hour
                   </span>
                 </div>
+                
                 <div className="cost-total">
-                  <span className="cost-amount">€{estimatedCost.toLocaleString()}</span>
+                  <span className="cost-amount">€{costEstimation.cost.toLocaleString()}</span>
                   <span className="cost-label">Total Estimated Cost</span>
                 </div>
               </div>
               <div className="cost-note">
                 <span className="note-icon">ℹ️</span>
-                <span>Based on 4 hours per developer per day at €100/hour</span>
+                <span>Based on 4 hours per developer per business day at €100/hour (excludes weekends and holidays)</span>
               </div>
             </div>
           )}

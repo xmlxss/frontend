@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { projectAPI } from '../services/api';
 import { format, differenceInDays } from 'date-fns';
+import { calculateProjectCost, getCommonHolidays } from '../utils/dateUtils';
 import SyncManager from './SyncManager';
 import '../styles/ProjectList.css';
 
@@ -99,33 +100,31 @@ function ProjectList() {
     return Math.round(totalProgress / project.jira_epics.length);
   };
 
-  // Calculate project cost
-  const calculateProjectCost = (project) => {
+  // Calculate project cost using business days
+  const calculateProjectCostBusinessDays = (project) => {
     if (!project.start_date || !project.end_date || !project.developers) {
       return 0;
     }
 
-    const startDate = new Date(project.start_date);
-    const endDate = new Date(project.end_date);
-    const daysDiff = differenceInDays(endDate, startDate) + 1;
+    // Get current year's holidays
+    const currentYear = new Date().getFullYear();
+    const holidays = getCommonHolidays(currentYear);
+    
     const teamSize = project.developers.length;
-
-    // Cost calculation: team members × 4 hours/day × days × €100/hour
-    return teamSize * 4 * daysDiff * 100;
+    return calculateProjectCost(project.start_date, project.end_date, teamSize, 100, 4, holidays);
   };
 
-  // Calculate estimated project cost based on max team members
-  const calculateEstimatedProjectCost = (project) => {
+  // Calculate estimated project cost based on max team members using business days
+  const calculateEstimatedProjectCostBusinessDays = (project) => {
     if (!project.start_date || !project.end_date || !project.max_team_members) {
       return 0;
     }
 
-    const startDate = new Date(project.start_date);
-    const endDate = new Date(project.end_date);
-    const daysDiff = differenceInDays(endDate, startDate) + 1;
-
-    // Cost calculation: max team members × 4 hours/day × days × €100/hour
-    return project.max_team_members * 4 * daysDiff * 100;
+    // Get current year's holidays
+    const currentYear = new Date().getFullYear();
+    const holidays = getCommonHolidays(currentYear);
+    
+    return calculateProjectCost(project.start_date, project.end_date, project.max_team_members, 100, 4, holidays);
   };
 
   const getProgressColor = (progress) => {
@@ -236,9 +235,9 @@ function ProjectList() {
     ? Math.round(projects.reduce((sum, p) => sum + calculateProjectProgress(p), 0) / projects.length)
     : 0;
 
-  // Calculate total costs
-  const totalEstimatedCost = projects.reduce((sum, p) => sum + calculateEstimatedProjectCost(p), 0);
-  const totalActualCost = projects.reduce((sum, p) => sum + calculateProjectCost(p), 0);
+  // Calculate total costs using business days
+  const totalEstimatedCost = projects.reduce((sum, p) => sum + calculateEstimatedProjectCostBusinessDays(p), 0);
+  const totalActualCost = projects.reduce((sum, p) => sum + calculateProjectCostBusinessDays(p), 0);
 
   if (loading) {
     return (
@@ -335,7 +334,7 @@ function ProjectList() {
               <div className="stat-label">Est. Budget</div>
               <div className="stat-trend">
                 <span className="trend-icon">💼</span>
-                <span className="trend-text">Total investment</span>
+                <span className="trend-text">Business days only</span>
               </div>
             </div>
           </div>
@@ -469,8 +468,8 @@ function ProjectList() {
               const projectProgress = calculateProjectProgress(project);
               const projectStatus = getProjectStatus(project);
               const teamCapacity = getTeamCapacity(project);
-              const estimatedCost = calculateEstimatedProjectCost(project);
-              const actualCost = calculateProjectCost(project);
+              const estimatedCost = calculateEstimatedProjectCostBusinessDays(project);
+              const actualCost = calculateProjectCostBusinessDays(project);
               
               return (
                 <Link 
@@ -619,6 +618,10 @@ function ProjectList() {
                           <span className="cost-amount">€{actualCost.toLocaleString()}</span>
                         </div>
                       )}
+                    </div>
+                    <div className="cost-note">
+                      <span className="note-icon">📅</span>
+                      <span className="note-text">Business days only</span>
                     </div>
                   </div>
 

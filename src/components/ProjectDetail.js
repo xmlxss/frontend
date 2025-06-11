@@ -7,6 +7,7 @@ import ConfluencePicker from './ConfluencePicker';
 import DeveloperPicker from './DeveloperPicker';
 import ProjectTimeline from './ProjectTimeline';
 import { format, differenceInDays } from 'date-fns';
+import { calculateProjectCost, getBusinessDaysDescription, formatProjectDuration, getCommonHolidays } from '../utils/dateUtils';
 import '../styles/ProjectDetail.css';
 
 function ProjectDetail() {
@@ -66,24 +67,45 @@ function ProjectDetail() {
     return Math.round(totalProgress / project.jira_epics.length);
   };
 
-  // Calculate project costs
-  const calculateProjectCost = () => {
-    if (!project.start_date || !project.end_date || !project.developers) {
-      return { estimated: 0, current: 0 };
+  // Calculate project costs using business days
+  const calculateProjectCostBusinessDays = () => {
+    if (!project.start_date || !project.end_date) {
+      return { estimated: 0, current: 0, businessDaysInfo: null };
     }
 
-    const startDate = new Date(project.start_date);
-    const endDate = new Date(project.end_date);
-    const daysDiff = differenceInDays(endDate, startDate) + 1;
+    // Get current year's holidays
+    const currentYear = new Date().getFullYear();
+    const holidays = getCommonHolidays(currentYear);
     
     // Estimated cost based on max team members
-    const estimatedCost = (project.max_team_members || 0) * 4 * daysDiff * 100;
+    const estimatedCost = calculateProjectCost(
+      project.start_date, 
+      project.end_date, 
+      project.max_team_members || 0, 
+      100, 
+      4, 
+      holidays
+    );
     
     // Current cost based on actual team members
-    const currentTeamSize = project.developers.length;
-    const currentCost = currentTeamSize * 4 * daysDiff * 100;
+    const currentTeamSize = project.developers?.length || 0;
+    const currentCost = calculateProjectCost(
+      project.start_date, 
+      project.end_date, 
+      currentTeamSize, 
+      100, 
+      4, 
+      holidays
+    );
 
-    return { estimated: estimatedCost, current: currentCost };
+    // Get business days information
+    const businessDaysInfo = getBusinessDaysDescription(
+      project.start_date, 
+      project.end_date, 
+      holidays
+    );
+
+    return { estimated: estimatedCost, current: currentCost, businessDaysInfo };
   };
 
   // Calculate team capacity
@@ -237,7 +259,7 @@ function ProjectDetail() {
   const progressDetails = calculateDetailedProgress();
   const epicBreakdown = getEpicProgressBreakdown();
   const teamCapacity = getTeamCapacity();
-  const projectCosts = calculateProjectCost();
+  const projectCosts = calculateProjectCostBusinessDays();
 
   return (
     <div className="project-detail-page">
@@ -271,7 +293,6 @@ function ProjectDetail() {
                 disabled={syncing}
               >
                 {!syncing && <span>🔄</span>}
-                }
                 {syncing ? 'Syncing...' : 'Sync Progress'}
               </button>
             </div>
@@ -381,18 +402,40 @@ function ProjectDetail() {
           {/* Cost Overview */}
           <div className="cost-overview-hero">
             <div className="cost-header">
-              <h3>Project Costs</h3>
+              <h3>Project Costs (Business Days)</h3>
             </div>
+            {projectCosts.businessDaysInfo && (
+              <div className="business-days-summary">
+                <div className="business-days-info">
+                  <span className="business-days-icon">📅</span>
+                  <div className="business-days-content">
+                    <div className="business-days-main">
+                      <strong>{projectCosts.businessDaysInfo.businessDays} business days</strong>
+                      <span className="duration-text">
+                        ({formatProjectDuration(project.start_date, project.end_date)})
+                      </span>
+                    </div>
+                    <div className="business-days-breakdown">
+                      <span>📊 {projectCosts.businessDaysInfo.totalDays} total days</span>
+                      <span>🚫 {projectCosts.businessDaysInfo.weekendDays} weekends excluded</span>
+                      {projectCosts.businessDaysInfo.holidays > 0 && (
+                        <span>🎉 {projectCosts.businessDaysInfo.holidays} holidays excluded</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="cost-breakdown">
               <div className="cost-item">
                 <div className="cost-label">Estimated Budget</div>
                 <div className="cost-amount">€{projectCosts.estimated.toLocaleString()}</div>
-                <div className="cost-details">{project.max_team_members} max × {getProjectDuration()} days</div>
+                <div className="cost-details">{project.max_team_members} max × {projectCosts.businessDaysInfo?.businessDays || 0} business days</div>
               </div>
               <div className="cost-item">
                 <div className="cost-label">Current Projection</div>
                 <div className="cost-amount">€{projectCosts.current.toLocaleString()}</div>
-                <div className="cost-details">{teamCapacity.current} members × {getProjectDuration()} days</div>
+                <div className="cost-details">{teamCapacity.current} members × {projectCosts.businessDaysInfo?.businessDays || 0} business days</div>
               </div>
             </div>
             <div className="cost-savings">
@@ -587,7 +630,7 @@ function ProjectDetail() {
               {/* Cost Breakdown */}
               <div className="overview-card glass">
                 <div className="card-header">
-                  <h3>Cost Analysis</h3>
+                  <h3>Cost Analysis (Business Days)</h3>
                   <span style={{ fontSize: '20px' }}>💰</span>
                 </div>
                 <div className="card-content">
@@ -627,6 +670,12 @@ function ProjectDetail() {
                         </span>
                       </div>
                     </div>
+                    {projectCosts.businessDaysInfo && (
+                      <div className="business-days-note">
+                        <span className="note-icon">📅</span>
+                        <span>Based on {projectCosts.businessDaysInfo.businessDays} business days (excludes weekends and holidays)</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
