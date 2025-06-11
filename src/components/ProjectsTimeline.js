@@ -19,17 +19,14 @@ function ProjectsTimeline() {
     fetchProjects();
   }, []);
 
-  // Auto-scroll to current month when Gantt is loaded - FIXED VERSION
+  // Auto-scroll to current month when Gantt is loaded
   useEffect(() => {
     if (projects.length > 0) {
-      // Wait for Gantt to be fully rendered
       const timer = setTimeout(() => {
         try {
-          // Find the Gantt scroll container
           const ganttElement = document.querySelector('.gantt-horizontal-scroll');
           if (!ganttElement) {
             console.log('Gantt scroll container not found, trying alternative selectors...');
-            // Try alternative selectors
             const altElement = document.querySelector('.gantt-task-gantt-content-scroll') || 
                               document.querySelector('.gantt-grid-body') ||
                               document.querySelector('[class*="gantt"][class*="scroll"]');
@@ -43,7 +40,7 @@ function ProjectsTimeline() {
         } catch (error) {
           console.error('Error auto-scrolling to today:', error);
         }
-      }, 1000); // Increased delay to ensure Gantt is fully loaded
+      }, 1000);
 
       return () => clearTimeout(timer);
     }
@@ -59,27 +56,22 @@ function ProjectsTimeline() {
     
     switch (viewMode) {
       case ViewMode.Month:
-        // Scroll to current month (each month is roughly 350px wide)
         scrollPosition = today.getMonth() * 350;
         break;
       case ViewMode.Week:
-        // Scroll to current week
         const weeksSinceStart = Math.floor(daysSinceStart / 7);
         scrollPosition = weeksSinceStart * 300;
         break;
       case ViewMode.Day:
-        // Scroll to current day
         scrollPosition = daysSinceStart * 80;
         break;
       case ViewMode.Year:
-        // Year view shows everything, no scroll needed
         scrollPosition = 0;
         break;
       default:
         scrollPosition = 0;
     }
     
-    // Center the current position in the viewport
     const containerWidth = scrollElement.clientWidth;
     const centeredPosition = Math.max(0, scrollPosition - (containerWidth / 2));
     
@@ -98,7 +90,7 @@ function ProjectsTimeline() {
     }
   };
 
-  // Calculate project progress based on linked epics
+  // MOVED: All helper functions before useMemo
   const calculateProjectProgress = (project) => {
     if (!project.jira_epics || project.jira_epics.length === 0) {
       return 0;
@@ -110,186 +102,6 @@ function ProjectsTimeline() {
 
     return Math.round(totalProgress / project.jira_epics.length);
   };
-
-  // FIXED: Developer availability checking
-  const isDeveloperAvailable = (developerId, newProjectStart, newProjectEnd) => {
-    const today = new Date();
-    
-    // Check all projects for conflicts
-    for (const project of projects) {
-      if (!project.developers) continue;
-      
-      // Check if developer is assigned to this project
-      const isAssigned = project.developers.some(dev => dev.id === developerId);
-      if (!isAssigned) continue;
-      
-      const projectStart = new Date(project.start_date);
-      const projectEnd = new Date(project.end_date);
-      const projectProgress = calculateProjectProgress(project);
-      
-      // Skip if project is completed (90%+ progress)
-      if (projectProgress >= 90) continue;
-      
-      // Skip if project has already ended
-      if (projectEnd < today) continue;
-      
-      // Check for date overlap
-      const newStart = new Date(newProjectStart);
-      const newEnd = new Date(newProjectEnd);
-      
-      const hasOverlap = (newStart <= projectEnd && newEnd >= projectStart);
-      
-      if (hasOverlap) {
-        return {
-          available: false,
-          conflictProject: project,
-          conflictDates: {
-            start: format(projectStart, 'MMM d, yyyy'),
-            end: format(projectEnd, 'MMM d, yyyy')
-          },
-          projectProgress: projectProgress
-        };
-      }
-    }
-    
-    return { available: true };
-  };
-
-  // FIXED: Get developer availability summary
-  const getDeveloperAvailabilitySummary = () => {
-    const today = new Date();
-    const allDevelopers = new Map(); // Use Map to store developer info
-    const busyDevelopers = new Set();
-    
-    // Collect all developers and check their availability
-    projects.forEach(project => {
-      if (!project.developers) return;
-      
-      project.developers.forEach(dev => {
-        allDevelopers.set(dev.id, dev);
-        
-        const projectEnd = new Date(project.end_date);
-        const projectProgress = calculateProjectProgress(project);
-        
-        // Developer is busy if project is not completed and hasn't ended
-        if (projectProgress < 90 && projectEnd >= today) {
-          busyDevelopers.add(dev.id);
-        }
-      });
-    });
-    
-    return {
-      total: allDevelopers.size,
-      busy: busyDevelopers.size,
-      available: allDevelopers.size - busyDevelopers.size
-    };
-  };
-
-  // Filter and sort projects
-  const getFilteredAndSortedProjects = () => {
-    let filtered = [...projects];
-
-    // Apply filters
-    switch (filterBy) {
-      case 'active':
-        filtered = filtered.filter(p => {
-          const progress = calculateProjectProgress(p);
-          return progress > 0 && progress < 90;
-        });
-        break;
-      case 'completed':
-        filtered = filtered.filter(p => calculateProjectProgress(p) >= 90);
-        break;
-      case 'urgent':
-        filtered = filtered.filter(p => p.company_priority <= 5);
-        break;
-      case 'at-risk':
-        filtered = filtered.filter(p => {
-          const progress = calculateProjectProgress(p);
-          const today = new Date();
-          const endDate = new Date(p.end_date);
-          const daysRemaining = differenceInDays(endDate, today);
-          return (daysRemaining < 7 && progress < 75) || daysRemaining < 0;
-        });
-        break;
-      default:
-        break;
-    }
-
-    // Apply sorting
-    switch (sortBy) {
-      case 'start_date':
-        filtered.sort((a, b) => new Date(a.start_date) - new Date(b.start_date));
-        break;
-      case 'priority':
-        filtered.sort((a, b) => (a.company_priority || 999) - (b.company_priority || 999));
-        break;
-      case 'progress':
-        filtered.sort((a, b) => calculateProjectProgress(b) - calculateProjectProgress(a));
-        break;
-      case 'duration':
-        filtered.sort((a, b) => {
-          const durationA = differenceInDays(new Date(a.end_date), new Date(a.start_date));
-          const durationB = differenceInDays(new Date(b.end_date), new Date(b.start_date));
-          return durationB - durationA;
-        });
-        break;
-      default:
-        break;
-    }
-
-    return filtered;
-  };
-
-  const filteredProjects = getFilteredAndSortedProjects();
-
-  // Convert projects to Gantt tasks
-  const ganttTasks = useMemo(() => {
-    return filteredProjects.map((project, index) => {
-      const progress = calculateProjectProgress(project);
-      const status = getProjectStatus(project);
-      const startDate = new Date(project.start_date);
-      const endDate = new Date(project.end_date);
-      
-      // Ensure end date is at least one day after start date
-      const adjustedEndDate = endDate <= startDate ? new Date(startDate.getTime() + 24 * 60 * 60 * 1000) : endDate;
-
-      return {
-        start: startDate,
-        end: adjustedEndDate,
-        name: project.title,
-        id: `project-${project.id}`,
-        type: 'task',
-        progress: showProgress ? progress : 0,
-        isDisabled: false,
-        styles: {
-          progressColor: status.color,
-          progressSelectedColor: status.color,
-          backgroundColor: getPriorityColor(project.company_priority),
-          backgroundSelectedColor: getPriorityColor(project.company_priority),
-          borderRadius: 8,
-        },
-        project: project, // Store the full project data for reference
-      };
-    });
-  }, [filteredProjects, showProgress]);
-
-  // Calculate comprehensive dashboard stats - REMOVED Total and Active
-  const urgentProjects = filteredProjects.filter(p => p.company_priority <= 5).length;
-  const completedProjects = filteredProjects.filter(p => calculateProjectProgress(p) >= 90).length;
-  const atRiskProjects = filteredProjects.filter(p => {
-    const progress = calculateProjectProgress(p);
-    const today = new Date();
-    const endDate = new Date(p.end_date);
-    const daysRemaining = differenceInDays(endDate, today);
-    return (daysRemaining < 7 && progress < 75) || daysRemaining < 0;
-  }).length;
-  const averageProgress = filteredProjects.length > 0 
-    ? Math.round(filteredProjects.reduce((sum, p) => sum + calculateProjectProgress(p), 0) / filteredProjects.length)
-    : 0;
-
-  // Get developer availability stats
-  const developerStats = getDeveloperAvailabilitySummary();
 
   const getProjectStatus = (project) => {
     const progress = calculateProjectProgress(project);
@@ -321,7 +133,172 @@ function ProjectsTimeline() {
     return '#5ac8fa';
   };
 
-  // Gantt event handlers
+  const isDeveloperAvailable = (developerId, newProjectStart, newProjectEnd) => {
+    const today = new Date();
+    
+    for (const project of projects) {
+      if (!project.developers) continue;
+      
+      const isAssigned = project.developers.some(dev => dev.id === developerId);
+      if (!isAssigned) continue;
+      
+      const projectStart = new Date(project.start_date);
+      const projectEnd = new Date(project.end_date);
+      const projectProgress = calculateProjectProgress(project);
+      
+      if (projectProgress >= 90) continue;
+      if (projectEnd < today) continue;
+      
+      const newStart = new Date(newProjectStart);
+      const newEnd = new Date(newProjectEnd);
+      
+      const hasOverlap = (newStart <= projectEnd && newEnd >= projectStart);
+      
+      if (hasOverlap) {
+        return {
+          available: false,
+          conflictProject: project,
+          conflictDates: {
+            start: format(projectStart, 'MMM d, yyyy'),
+            end: format(projectEnd, 'MMM d, yyyy')
+          },
+          projectProgress: projectProgress
+        };
+      }
+    }
+    
+    return { available: true };
+  };
+
+  const getDeveloperAvailabilitySummary = () => {
+    const today = new Date();
+    const allDevelopers = new Map();
+    const busyDevelopers = new Set();
+    
+    projects.forEach(project => {
+      if (!project.developers) return;
+      
+      project.developers.forEach(dev => {
+        allDevelopers.set(dev.id, dev);
+        
+        const projectEnd = new Date(project.end_date);
+        const projectProgress = calculateProjectProgress(project);
+        
+        if (projectProgress < 90 && projectEnd >= today) {
+          busyDevelopers.add(dev.id);
+        }
+      });
+    });
+    
+    return {
+      total: allDevelopers.size,
+      busy: busyDevelopers.size,
+      available: allDevelopers.size - busyDevelopers.size
+    };
+  };
+
+  // Filter and sort projects
+  const getFilteredAndSortedProjects = () => {
+    let filtered = [...projects];
+
+    switch (filterBy) {
+      case 'active':
+        filtered = filtered.filter(p => {
+          const progress = calculateProjectProgress(p);
+          return progress > 0 && progress < 90;
+        });
+        break;
+      case 'completed':
+        filtered = filtered.filter(p => calculateProjectProgress(p) >= 90);
+        break;
+      case 'urgent':
+        filtered = filtered.filter(p => p.company_priority <= 5);
+        break;
+      case 'at-risk':
+        filtered = filtered.filter(p => {
+          const progress = calculateProjectProgress(p);
+          const today = new Date();
+          const endDate = new Date(p.end_date);
+          const daysRemaining = differenceInDays(endDate, today);
+          return (daysRemaining < 7 && progress < 75) || daysRemaining < 0;
+        });
+        break;
+      default:
+        break;
+    }
+
+    switch (sortBy) {
+      case 'start_date':
+        filtered.sort((a, b) => new Date(a.start_date) - new Date(b.start_date));
+        break;
+      case 'priority':
+        filtered.sort((a, b) => (a.company_priority || 999) - (b.company_priority || 999));
+        break;
+      case 'progress':
+        filtered.sort((a, b) => calculateProjectProgress(b) - calculateProjectProgress(a));
+        break;
+      case 'duration':
+        filtered.sort((a, b) => {
+          const durationA = differenceInDays(new Date(a.end_date), new Date(a.start_date));
+          const durationB = differenceInDays(new Date(b.end_date), new Date(b.start_date));
+          return durationB - durationA;
+        });
+        break;
+      default:
+        break;
+    }
+
+    return filtered;
+  };
+
+  const filteredProjects = getFilteredAndSortedProjects();
+
+  // NOW: Convert projects to Gantt tasks (after all helper functions are defined)
+  const ganttTasks = useMemo(() => {
+    return filteredProjects.map((project, index) => {
+      const progress = calculateProjectProgress(project);
+      const status = getProjectStatus(project);
+      const startDate = new Date(project.start_date);
+      const endDate = new Date(project.end_date);
+      
+      const adjustedEndDate = endDate <= startDate ? new Date(startDate.getTime() + 24 * 60 * 60 * 1000) : endDate;
+
+      return {
+        start: startDate,
+        end: adjustedEndDate,
+        name: project.title,
+        id: `project-${project.id}`,
+        type: 'task',
+        progress: showProgress ? progress : 0,
+        isDisabled: false,
+        styles: {
+          progressColor: status.color,
+          progressSelectedColor: status.color,
+          backgroundColor: getPriorityColor(project.company_priority),
+          backgroundSelectedColor: getPriorityColor(project.company_priority),
+          borderRadius: 8,
+        },
+        project: project,
+      };
+    });
+  }, [filteredProjects, showProgress]);
+
+  // Calculate dashboard stats
+  const urgentProjects = filteredProjects.filter(p => p.company_priority <= 5).length;
+  const completedProjects = filteredProjects.filter(p => calculateProjectProgress(p) >= 90).length;
+  const atRiskProjects = filteredProjects.filter(p => {
+    const progress = calculateProjectProgress(p);
+    const today = new Date();
+    const endDate = new Date(p.end_date);
+    const daysRemaining = differenceInDays(endDate, today);
+    return (daysRemaining < 7 && progress < 75) || daysRemaining < 0;
+  }).length;
+  const averageProgress = filteredProjects.length > 0 
+    ? Math.round(filteredProjects.reduce((sum, p) => sum + calculateProjectProgress(p), 0) / filteredProjects.length)
+    : 0;
+
+  const developerStats = getDeveloperAvailabilitySummary();
+
   const handleTaskClick = (task) => {
     if (task.project) {
       window.open(`/projects/${task.project.id}`, '_blank');
@@ -363,7 +340,7 @@ function ProjectsTimeline() {
           </div>
         </div>
 
-        {/* Focused KPI Dashboard - Removed Total and Active + Added Developer Availability */}
+        {/* Focused KPI Dashboard */}
         <div className="timeline-stats">
           <div className="stat-card glass">
             <div className="stat-icon-container urgent">
@@ -407,21 +384,6 @@ function ProjectsTimeline() {
             </div>
           </div>
 
-          <div className="stat-card glass">
-            <div className="stat-icon-container progress">
-              <span className="stat-icon">📊</span>
-            </div>
-            <div className="stat-content">
-              <div className="stat-number">{averageProgress}%</div>
-              <div className="stat-label">Avg Progress</div>
-              <div className="stat-trend">
-                <span className="trend-icon">📈</span>
-                <span className="trend-text">Overall completion</span>
-              </div>
-            </div>
-          </div>
-
-          {/* NEW: Developer Availability Card */}
           <div className="stat-card glass highlight">
             <div className="stat-icon-container success">
               <span className="stat-icon">👥</span>
@@ -516,7 +478,7 @@ function ProjectsTimeline() {
         </div>
       </div>
 
-      {/* PURE GANTT CHART - Chart Only, No Columns */}
+      {/* PURE GANTT CHART */}
       {filteredProjects.length === 0 ? (
         <div className="empty-state glass">
           <div className="empty-state-content">
@@ -652,7 +614,7 @@ function ProjectsTimeline() {
         </div>
       )}
 
-      {/* Comprehensive Legend & Visual Guide */}
+      {/* Enhanced Legend */}
       <div className="timeline-legend glass">
         <div className="legend-section">
           <h4>🎯 Priority Levels</h4>
