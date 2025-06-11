@@ -1,4 +1,4 @@
-/* Project Form Styles */
+/* Project Form Styles - Light Theme */
 .project-form-container {
   max-width: 800px;
   margin: 0 auto;
@@ -7,6 +7,7 @@
 
 .form-card {
   background: var(--bg-primary);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-xl);
   padding: var(--spacing-2xl);
   box-shadow: var(--shadow-lg);
@@ -51,6 +52,7 @@
 
 .label-icon {
   font-size: var(--font-size-lg);
+  color: var(--primary-color);
 }
 
 .form-group input,
@@ -68,6 +70,7 @@
 .form-group textarea:focus {
   border-color: var(--primary-color);
   box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+  outline: none;
 }
 
 .form-group input.error,
@@ -105,16 +108,20 @@
   transition: all var(--transition-fast);
   position: relative;
   overflow: hidden;
+  background: var(--bg-primary);
 }
 
 .priority-option:hover {
   border-color: var(--priority-color);
   background: rgba(var(--priority-color-rgb), 0.05);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
 }
 
 .priority-option.selected {
   border-color: var(--priority-color);
   background: rgba(var(--priority-color-rgb), 0.1);
+  box-shadow: var(--shadow-md);
 }
 
 .priority-color-bar {
@@ -173,6 +180,7 @@
   gap: var(--spacing-sm);
   padding: var(--spacing-sm) var(--spacing-md);
   background: var(--bg-tertiary);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
 }
 
@@ -218,12 +226,15 @@
 .preset-btn:hover {
   background: var(--bg-primary);
   border-color: var(--primary-color);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
 }
 
 .preset-btn.active {
   background: var(--primary-color);
   color: var(--text-inverse);
   border-color: var(--primary-color);
+  box-shadow: var(--shadow-sm);
 }
 
 /* Cost Estimation Card */
@@ -233,6 +244,7 @@
   border-radius: var(--radius-lg);
   padding: var(--spacing-lg);
   margin-top: var(--spacing-md);
+  box-shadow: var(--shadow-sm);
 }
 
 .cost-header {
@@ -244,6 +256,7 @@
 
 .cost-icon {
   font-size: var(--font-size-xl);
+  color: var(--success-color);
 }
 
 .cost-header h3 {
