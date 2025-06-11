@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { projectAPI } from '../services/api';
+import '../styles/ProjectForm.css';
 
 function ProjectForm() {
   const navigate = useNavigate();
@@ -9,29 +10,54 @@ function ProjectForm() {
     description: '',
     start_date: '',
     end_date: '',
-    priority: 'medium'
+    priority: 'medium',
+    max_team_members: 5
   });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
 
   const priorities = [
-    { value: 'very_high', label: 'Urgent', color: '#00693e', description: 'Critical priority' },
-    { value: 'high', label: 'High', color: '#00875a', description: 'Important work' },
-    { value: 'medium', label: 'Medium', color: '#36b37e', description: 'Standard priority' },
-    { value: 'low', label: 'Low', color: '#57d9a3', description: 'Nice to have' },
-    { value: 'very_low', label: 'Very Low', color: '#79f2c0', description: 'Future consideration' }
+    { value: 'very_high', label: 'Urgent', color: '#ff3b30', description: 'Critical priority' },
+    { value: 'high', label: 'High', color: '#ff9500', description: 'Important work' },
+    { value: 'medium', label: 'Medium', color: '#007aff', description: 'Standard priority' },
+    { value: 'low', label: 'Low', color: '#34c759', description: 'Nice to have' },
+    { value: 'very_low', label: 'Very Low', color: '#5ac8fa', description: 'Future consideration' }
+  ];
+
+  const teamSizePresets = [
+    { value: 1, label: 'Solo', description: 'Individual contributor' },
+    { value: 2, label: 'Pair', description: 'Two-person team' },
+    { value: 3, label: 'Small', description: 'Small agile team' },
+    { value: 5, label: 'Standard', description: 'Typical team size' },
+    { value: 8, label: 'Large', description: 'Extended team' },
+    { value: 12, label: 'Department', description: 'Department-wide' },
+    { value: 20, label: 'Division', description: 'Large initiative' }
   ];
 
   const handleChange = (e) => {
+    const { name, value, type } = e.target;
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [name]: type === 'number' ? parseInt(value) || 0 : value
     });
     // Clear error for this field
-    if (errors[e.target.name]) {
+    if (errors[name]) {
       setErrors({
         ...errors,
-        [e.target.name]: ''
+        [name]: ''
+      });
+    }
+  };
+
+  const handleTeamSizePreset = (size) => {
+    setFormData({
+      ...formData,
+      max_team_members: size
+    });
+    if (errors.max_team_members) {
+      setErrors({
+        ...errors,
+        max_team_members: ''
       });
     }
   };
@@ -55,9 +81,42 @@ function ProjectForm() {
         new Date(formData.start_date) > new Date(formData.end_date)) {
       newErrors.end_date = 'End date must be after start date';
     }
+
+    if (!formData.max_team_members || formData.max_team_members < 1) {
+      newErrors.max_team_members = 'Team size must be at least 1';
+    }
+
+    if (formData.max_team_members > 100) {
+      newErrors.max_team_members = 'Team size cannot exceed 100 members';
+    }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  const calculateEstimatedCost = () => {
+    if (!formData.start_date || !formData.end_date || !formData.max_team_members) {
+      return 0;
+    }
+
+    const startDate = new Date(formData.start_date);
+    const endDate = new Date(formData.end_date);
+    const timeDiff = endDate.getTime() - startDate.getTime();
+    const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1;
+
+    // Cost calculation: team members × 4 hours/day × days × €100/hour
+    return formData.max_team_members * 4 * daysDiff * 100;
+  };
+
+  const getTeamSizeRecommendation = () => {
+    const teamSize = formData.max_team_members;
+    if (teamSize === 1) return { icon: '👤', text: 'Perfect for focused individual work', color: '#34c759' };
+    if (teamSize <= 2) return { icon: '👥', text: 'Great for pair programming and collaboration', color: '#34c759' };
+    if (teamSize <= 3) return { icon: '🔥', text: 'Ideal for agile development teams', color: '#34c759' };
+    if (teamSize <= 5) return { icon: '⚡', text: 'Balanced team size for most projects', color: '#007aff' };
+    if (teamSize <= 8) return { icon: '🚀', text: 'Large team - ensure good coordination', color: '#ff9500' };
+    if (teamSize <= 12) return { icon: '🏢', text: 'Department-level project', color: '#ff9500' };
+    return { icon: '🌟', text: 'Enterprise-scale initiative', color: '#ff3b30' };
   };
 
   const handleSubmit = async (e) => {
@@ -79,12 +138,15 @@ function ProjectForm() {
     }
   };
 
+  const estimatedCost = calculateEstimatedCost();
+  const recommendation = getTeamSizeRecommendation();
+
   return (
     <div className="project-form-container">
       <div className="form-card">
         <div className="form-header">
           <h1>Create New Project</h1>
-          <p className="form-subtitle">Define a new project and set its priority level</p>
+          <p className="form-subtitle">Define a new project with team size and cost estimation</p>
         </div>
         
         <form onSubmit={handleSubmit} className="project-form">
@@ -153,6 +215,61 @@ function ProjectForm() {
               ))}
             </div>
           </div>
+
+          <div className="form-group">
+            <label htmlFor="max_team_members">
+              <span className="label-icon">👥</span>
+              Maximum Team Size *
+            </label>
+            <div className="team-size-section">
+              <div className="team-size-input-container">
+                <input
+                  type="number"
+                  id="max_team_members"
+                  name="max_team_members"
+                  value={formData.max_team_members}
+                  onChange={handleChange}
+                  min="1"
+                  max="100"
+                  className={errors.max_team_members ? 'error' : ''}
+                />
+                <span className="input-suffix">members</span>
+              </div>
+              
+              {errors.max_team_members && (
+                <span className="error-message">
+                  <span className="error-icon">⚠️</span>
+                  {errors.max_team_members}
+                </span>
+              )}
+
+              <div className="team-size-recommendation">
+                <span className="recommendation-icon" style={{ color: recommendation.color }}>
+                  {recommendation.icon}
+                </span>
+                <span className="recommendation-text" style={{ color: recommendation.color }}>
+                  {recommendation.text}
+                </span>
+              </div>
+
+              <div className="team-size-presets">
+                <span className="presets-label">Quick Select:</span>
+                <div className="preset-buttons">
+                  {teamSizePresets.map(preset => (
+                    <button
+                      key={preset.value}
+                      type="button"
+                      className={`preset-btn ${formData.max_team_members === preset.value ? 'active' : ''}`}
+                      onClick={() => handleTeamSizePreset(preset.value)}
+                      title={preset.description}
+                    >
+                      {preset.value} - {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
           
           <div className="form-row">
             <div className="form-group">
@@ -197,6 +314,30 @@ function ProjectForm() {
               )}
             </div>
           </div>
+
+          {estimatedCost > 0 && (
+            <div className="cost-estimation-card">
+              <div className="cost-header">
+                <span className="cost-icon">💰</span>
+                <h3>Estimated Project Cost</h3>
+              </div>
+              <div className="cost-breakdown">
+                <div className="cost-calculation">
+                  <span className="cost-formula">
+                    {formData.max_team_members} members × 4 hours/day × {Math.ceil((new Date(formData.end_date) - new Date(formData.start_date)) / (1000 * 60 * 60 * 24)) + 1} days × €100/hour
+                  </span>
+                </div>
+                <div className="cost-total">
+                  <span className="cost-amount">€{estimatedCost.toLocaleString()}</span>
+                  <span className="cost-label">Total Estimated Cost</span>
+                </div>
+              </div>
+              <div className="cost-note">
+                <span className="note-icon">ℹ️</span>
+                <span>Based on 4 hours per developer per day at €100/hour</span>
+              </div>
+            </div>
+          )}
           
           <div className="form-actions">
             <button 

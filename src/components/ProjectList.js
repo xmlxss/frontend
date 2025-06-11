@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { projectAPI } from '../services/api';
 import { format, differenceInDays } from 'date-fns';
 import SyncManager from './SyncManager';
+import '../styles/ProjectList.css';
 
 function ProjectList() {
   const [projects, setProjects] = useState([]);
@@ -98,6 +99,35 @@ function ProjectList() {
     return Math.round(totalProgress / project.jira_epics.length);
   };
 
+  // Calculate project cost
+  const calculateProjectCost = (project) => {
+    if (!project.start_date || !project.end_date || !project.developers) {
+      return 0;
+    }
+
+    const startDate = new Date(project.start_date);
+    const endDate = new Date(project.end_date);
+    const daysDiff = differenceInDays(endDate, startDate) + 1;
+    const teamSize = project.developers.length;
+
+    // Cost calculation: team members × 4 hours/day × days × €100/hour
+    return teamSize * 4 * daysDiff * 100;
+  };
+
+  // Calculate estimated project cost based on max team members
+  const calculateEstimatedProjectCost = (project) => {
+    if (!project.start_date || !project.end_date || !project.max_team_members) {
+      return 0;
+    }
+
+    const startDate = new Date(project.start_date);
+    const endDate = new Date(project.end_date);
+    const daysDiff = differenceInDays(endDate, startDate) + 1;
+
+    // Cost calculation: max team members × 4 hours/day × days × €100/hour
+    return project.max_team_members * 4 * daysDiff * 100;
+  };
+
   const getProgressColor = (progress) => {
     if (progress >= 90) return '#00d4aa';
     if (progress >= 75) return '#34c759';
@@ -129,6 +159,27 @@ function ProjectList() {
     if (days === 0) return 'Due today';
     if (days === 1) return '1 day left';
     return `${days} days left`;
+  };
+
+  const getTeamCapacity = (project) => {
+    const currentTeam = project.developers?.length || 0;
+    const maxTeam = project.max_team_members || 0;
+    const percentage = maxTeam > 0 ? (currentTeam / maxTeam) * 100 : 0;
+    
+    return {
+      current: currentTeam,
+      max: maxTeam,
+      percentage: Math.round(percentage),
+      status: percentage >= 100 ? 'full' : percentage >= 80 ? 'nearly-full' : 'available'
+    };
+  };
+
+  const getCapacityColor = (status) => {
+    switch (status) {
+      case 'full': return '#ff3b30';
+      case 'nearly-full': return '#ff9500';
+      default: return '#34c759';
+    }
   };
 
   // Filter and sort projects
@@ -184,6 +235,10 @@ function ProjectList() {
   const averageProgress = projects.length > 0 
     ? Math.round(projects.reduce((sum, p) => sum + calculateProjectProgress(p), 0) / projects.length)
     : 0;
+
+  // Calculate total costs
+  const totalEstimatedCost = projects.reduce((sum, p) => sum + calculateEstimatedProjectCost(p), 0);
+  const totalActualCost = projects.reduce((sum, p) => sum + calculateProjectCost(p), 0);
 
   if (loading) {
     return (
@@ -273,14 +328,14 @@ function ProjectList() {
 
           <div className="stat-card glass">
             <div className="stat-icon-container info">
-              <span className="stat-icon">📊</span>
+              <span className="stat-icon">💰</span>
             </div>
             <div className="stat-content">
-              <div className="stat-number">{averageProgress}%</div>
-              <div className="stat-label">Avg Progress</div>
+              <div className="stat-number">€{Math.round(totalEstimatedCost / 1000)}K</div>
+              <div className="stat-label">Est. Budget</div>
               <div className="stat-trend">
-                <span className="trend-icon">📈</span>
-                <span className="trend-text">Overall health</span>
+                <span className="trend-icon">💼</span>
+                <span className="trend-text">Total investment</span>
               </div>
             </div>
           </div>
@@ -413,6 +468,9 @@ function ProjectList() {
             {filteredProjects.map(project => {
               const projectProgress = calculateProjectProgress(project);
               const projectStatus = getProjectStatus(project);
+              const teamCapacity = getTeamCapacity(project);
+              const estimatedCost = calculateEstimatedProjectCost(project);
+              const actualCost = calculateProjectCost(project);
               
               return (
                 <Link 
@@ -480,6 +538,40 @@ function ProjectList() {
                     </div>
                   </div>
 
+                  {/* Team Capacity Section */}
+                  <div className="team-capacity-section">
+                    <div className="capacity-header">
+                      <span className="capacity-label">
+                        <span className="capacity-icon">👥</span>
+                        Team Capacity
+                      </span>
+                      <span 
+                        className="capacity-status"
+                        style={{ color: getCapacityColor(teamCapacity.status) }}
+                      >
+                        <span className="capacity-status-icon">
+                          {teamCapacity.status === 'full' ? '🔴' : 
+                           teamCapacity.status === 'nearly-full' ? '🟡' : '🟢'}
+                        </span>
+                        {teamCapacity.current}/{teamCapacity.max}
+                      </span>
+                    </div>
+                    <div className="capacity-bar">
+                      <div 
+                        className="capacity-fill"
+                        style={{ 
+                          width: `${Math.min(teamCapacity.percentage, 100)}%`,
+                          backgroundColor: getCapacityColor(teamCapacity.status)
+                        }}
+                      ></div>
+                    </div>
+                    <div className="capacity-details">
+                      <span className="capacity-current">{teamCapacity.current}</span>
+                      <span className="capacity-separator">/</span>
+                      <span className="capacity-max">{teamCapacity.max} members</span>
+                    </div>
+                  </div>
+
                   {/* Progress Section */}
                   <div className="progress-section enhanced">
                     <div className="progress-header">
@@ -506,6 +598,28 @@ function ProjectList() {
                         <span>Based on {project.jira_epics.length} epic{project.jira_epics.length !== 1 ? 's' : ''}</span>
                       </div>
                     )}
+                  </div>
+
+                  {/* Cost Section */}
+                  <div className="cost-section">
+                    <div className="cost-header">
+                      <span className="cost-label">
+                        <span className="cost-icon">💰</span>
+                        Project Cost
+                      </span>
+                    </div>
+                    <div className="cost-details">
+                      <div className="cost-item">
+                        <span className="cost-type">Estimated:</span>
+                        <span className="cost-amount">€{estimatedCost.toLocaleString()}</span>
+                      </div>
+                      {actualCost > 0 && (
+                        <div className="cost-item">
+                          <span className="cost-type">Current:</span>
+                          <span className="cost-amount">€{actualCost.toLocaleString()}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* Project Stats */}

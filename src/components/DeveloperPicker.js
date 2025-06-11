@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { teamsAPI, debounce } from '../services/api';
 
-function DeveloperPicker({ selectedDevelopers, onUpdate }) {
+function DeveloperPicker({ selectedDevelopers, onUpdate, maxTeamMembers = null }) {
   const [allDevelopers, setAllDevelopers] = useState([]);
   const [displayedDevelopers, setDisplayedDevelopers] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -17,6 +17,10 @@ function DeveloperPicker({ selectedDevelopers, onUpdate }) {
   useEffect(() => {
     filterDevelopers();
   }, [searchQuery, activeTeam, allDevelopers]);
+
+  useEffect(() => {
+    setSelected(selectedDevelopers);
+  }, [selectedDevelopers]);
 
   const fetchDevelopers = async () => {
     setLoading(true);
@@ -85,6 +89,10 @@ function DeveloperPicker({ selectedDevelopers, onUpdate }) {
     if (isSelected) {
       newSelected = selected.filter(s => s.id !== developer.id);
     } else {
+      // Check if adding this developer would exceed max team members
+      if (maxTeamMembers && selected.length >= maxTeamMembers) {
+        return; // Don't add if at capacity
+      }
       newSelected = [...selected, developer];
     }
     
@@ -94,6 +102,31 @@ function DeveloperPicker({ selectedDevelopers, onUpdate }) {
 
   const isDeveloperSelected = (developer) => {
     return selected.some(s => s.id === developer.id);
+  };
+
+  const isAtCapacity = () => {
+    return maxTeamMembers && selected.length >= maxTeamMembers;
+  };
+
+  const getCapacityPercentage = () => {
+    if (!maxTeamMembers) return 0;
+    return Math.round((selected.length / maxTeamMembers) * 100);
+  };
+
+  const getCapacityStatus = () => {
+    const percentage = getCapacityPercentage();
+    if (percentage >= 100) return 'full';
+    if (percentage >= 80) return 'nearly-full';
+    return 'available';
+  };
+
+  const getCapacityColor = () => {
+    const status = getCapacityStatus();
+    switch (status) {
+      case 'full': return '#ff3b30';
+      case 'nearly-full': return '#ff9500';
+      default: return '#34c759';
+    }
   };
 
   const getTeamColor = (team) => {
@@ -141,6 +174,47 @@ function DeveloperPicker({ selectedDevelopers, onUpdate }) {
           </button>
         </div>
       </div>
+
+      {/* Team Capacity Indicator */}
+      {maxTeamMembers && (
+        <div className="team-capacity-indicator">
+          <div className="capacity-info">
+            <span className="capacity-text">
+              Team Capacity: {selected.length}/{maxTeamMembers}
+            </span>
+            <span className="capacity-percentage">({getCapacityPercentage()}%)</span>
+          </div>
+          <div className="capacity-bar-mini">
+            <div 
+              className="capacity-fill-mini"
+              style={{ 
+                width: `${Math.min(getCapacityPercentage(), 100)}%`,
+                backgroundColor: getCapacityColor()
+              }}
+            ></div>
+          </div>
+        </div>
+      )}
+
+      {/* Capacity Warning */}
+      {maxTeamMembers && getCapacityStatus() !== 'available' && (
+        <div className={`capacity-warning ${getCapacityStatus() === 'full' ? 'full' : ''}`}>
+          <span className="warning-icon">
+            {getCapacityStatus() === 'full' ? '🚫' : '⚠️'}
+          </span>
+          <div className="warning-content">
+            <strong>
+              {getCapacityStatus() === 'full' ? 'Team at Maximum Capacity' : 'Approaching Team Capacity'}
+            </strong>
+            <p>
+              {getCapacityStatus() === 'full' 
+                ? `This project has reached its maximum team size of ${maxTeamMembers} members. Remove a member before adding new ones.`
+                : `This project is approaching its maximum team size of ${maxTeamMembers} members.`
+              }
+            </p>
+          </div>
+        </div>
+      )}
       
       <div className="search-section">
         <div className="search-input-container">
@@ -199,6 +273,11 @@ function DeveloperPicker({ selectedDevelopers, onUpdate }) {
               <span className="icon">👥</span>
               Assigned Members
               <span className="count-badge">{selected.length}</span>
+              {maxTeamMembers && (
+                <span className="capacity-badge">
+                  / {maxTeamMembers} max
+                </span>
+              )}
             </h3>
             <button 
               className="clear-all-btn"
@@ -304,88 +383,94 @@ function DeveloperPicker({ selectedDevelopers, onUpdate }) {
             {displayedDevelopers.length === 0 ? (
               <div className="empty-state-inline">
                 <div className="empty-icon">
-                  <svg width="48\" height="48\" viewBox="0 0 24 24\" fill="none">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2\" stroke="currentColor\" strokeWidth="2"/>
-                    <circle cx="12\" cy="7\" r="4\" stroke="currentColor\" strokeWidth="2"/>
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="2"/>
+                    <circle cx="12" cy="7" r="4" stroke="currentColor" strokeWidth="2"/>
                   </svg>
                 </div>
                 <h4>No team members found</h4>
                 <p>No team members match your current search and filters.</p>
               </div>
             ) : (
-              displayedDevelopers.filter(dev => !isDeveloperSelected(dev)).map(developer => (
-                <div 
-                  key={developer.id} 
-                  className="developer-card glass" 
-                  onClick={() => toggleDeveloper(developer)}
-                >
-                  <div className="developer-avatar-container">
-                    {developer.avatar ? (
-                      <img 
-                        src={developer.avatar} 
-                        alt={developer.name} 
-                        className="developer-avatar" 
-                      />
-                    ) : (
-                      <div className="developer-avatar-fallback">
-                        {getInitials(developer.name)}
+              displayedDevelopers.filter(dev => !isDeveloperSelected(dev)).map(developer => {
+                const canAdd = !isAtCapacity();
+                return (
+                  <div 
+                    key={developer.id} 
+                    className={`developer-card glass ${!canAdd ? 'disabled' : ''}`}
+                    onClick={() => canAdd && toggleDeveloper(developer)}
+                  >
+                    <div className="developer-avatar-container">
+                      {developer.avatar ? (
+                        <img 
+                          src={developer.avatar} 
+                          alt={developer.name} 
+                          className="developer-avatar" 
+                        />
+                      ) : (
+                        <div className="developer-avatar-fallback">
+                          {getInitials(developer.name)}
+                        </div>
+                      )}
+                      <div className="online-indicator"></div>
+                    </div>
+                    <div className="developer-info">
+                      <h4 className="developer-name">{developer.name}</h4>
+                      <p className="developer-email">{developer.email}</p>
+                      <div className="developer-teams">
+                        {developer.primary_team && developer.primary_team !== 'No Team Assigned' && (
+                          <span 
+                            className="team-badge primary"
+                            style={{ 
+                              background: `${getTeamColor(developer.primary_team)}20`,
+                              color: getTeamColor(developer.primary_team),
+                              borderColor: getTeamColor(developer.primary_team) 
+                            }}
+                          >
+                            <span 
+                              className="team-color-dot"
+                              style={{ backgroundColor: getTeamColor(developer.primary_team) }}
+                            ></span>
+                            {developer.primary_team}
+                          </span>
+                        )}
+                        {developer.teams?.filter(team => team !== developer.primary_team).slice(0, 2).map((team, index) => (
+                          <span 
+                            key={index}
+                            className="team-badge"
+                            style={{ 
+                              background: `${getTeamColor(team)}10`,
+                              color: getTeamColor(team),
+                              borderColor: getTeamColor(team) 
+                            }}
+                          >
+                            <span 
+                              className="team-color-dot"
+                              style={{ backgroundColor: getTeamColor(team) }}
+                            ></span>
+                            {team}
+                          </span>
+                        ))}
+                        {developer.teams?.length > 3 && (
+                          <span className="team-badge more">+{developer.teams.length - 3}</span>
+                        )}
                       </div>
-                    )}
-                    <div className="online-indicator"></div>
-                  </div>
-                  <div className="developer-info">
-                    <h4 className="developer-name">{developer.name}</h4>
-                    <p className="developer-email">{developer.email}</p>
-                    <div className="developer-teams">
-                      {developer.primary_team && developer.primary_team !== 'No Team Assigned' && (
-                        <span 
-                          className="team-badge primary"
-                          style={{ 
-                            background: `${getTeamColor(developer.primary_team)}20`,
-                            color: getTeamColor(developer.primary_team),
-                            borderColor: getTeamColor(developer.primary_team) 
-                          }}
-                        >
-                          <span 
-                            className="team-color-dot"
-                            style={{ backgroundColor: getTeamColor(developer.primary_team) }}
-                          ></span>
-                          {developer.primary_team}
-                        </span>
-                      )}
-                      {developer.teams?.filter(team => team !== developer.primary_team).slice(0, 2).map((team, index) => (
-                        <span 
-                          key={index}
-                          className="team-badge"
-                          style={{ 
-                            background: `${getTeamColor(team)}10`,
-                            color: getTeamColor(team),
-                            borderColor: getTeamColor(team) 
-                          }}
-                        >
-                          <span 
-                            className="team-color-dot"
-                            style={{ backgroundColor: getTeamColor(team) }}
-                          ></span>
-                          {team}
-                        </span>
-                      ))}
-                      {developer.teams?.length > 3 && (
-                        <span className="team-badge more">+{developer.teams.length - 3}</span>
-                      )}
+                    </div>
+                    <div className="developer-actions">
+                      <button 
+                        className={`btn btn-primary btn-sm ${!canAdd ? 'disabled' : ''}`}
+                        disabled={!canAdd}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                          <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" strokeWidth="2"/>
+                          <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" strokeWidth="2"/>
+                        </svg>
+                        {canAdd ? 'Add Member' : 'Team Full'}
+                      </button>
                     </div>
                   </div>
-                  <div className="developer-actions">
-                    <button className="btn btn-primary btn-sm">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                        <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" strokeWidth="2"/>
-                        <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" strokeWidth="2"/>
-                      </svg>
-                      Add Member
-                    </button>
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         )}

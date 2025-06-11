@@ -7,6 +7,7 @@ import ConfluencePicker from './ConfluencePicker';
 import DeveloperPicker from './DeveloperPicker';
 import ProjectTimeline from './ProjectTimeline';
 import { format, differenceInDays } from 'date-fns';
+import '../styles/ProjectDetail.css';
 
 function ProjectDetail() {
   const { id } = useParams();
@@ -63,6 +64,40 @@ function ProjectDetail() {
     }, 0);
 
     return Math.round(totalProgress / project.jira_epics.length);
+  };
+
+  // Calculate project costs
+  const calculateProjectCost = () => {
+    if (!project.start_date || !project.end_date || !project.developers) {
+      return { estimated: 0, current: 0 };
+    }
+
+    const startDate = new Date(project.start_date);
+    const endDate = new Date(project.end_date);
+    const daysDiff = differenceInDays(endDate, startDate) + 1;
+    
+    // Estimated cost based on max team members
+    const estimatedCost = (project.max_team_members || 0) * 4 * daysDiff * 100;
+    
+    // Current cost based on actual team members
+    const currentTeamSize = project.developers.length;
+    const currentCost = currentTeamSize * 4 * daysDiff * 100;
+
+    return { estimated: estimatedCost, current: currentCost };
+  };
+
+  // Calculate team capacity
+  const getTeamCapacity = () => {
+    const currentTeam = project.developers?.length || 0;
+    const maxTeam = project.max_team_members || 0;
+    const percentage = maxTeam > 0 ? (currentTeam / maxTeam) * 100 : 0;
+    
+    return {
+      current: currentTeam,
+      max: maxTeam,
+      percentage: Math.round(percentage),
+      status: percentage >= 100 ? 'full' : percentage >= 80 ? 'nearly-full' : 'available'
+    };
   };
 
   // Calculate detailed progress from epic issues
@@ -126,6 +161,14 @@ function ProjectDetail() {
     if (progress >= 60) return '#007aff';
     if (progress >= 40) return '#ff9500';
     return '#ff3b30';
+  };
+
+  const getCapacityColor = (status) => {
+    switch (status) {
+      case 'full': return '#ff3b30';
+      case 'nearly-full': return '#ff9500';
+      default: return '#34c759';
+    }
   };
 
   const getDaysRemaining = () => {
@@ -193,6 +236,8 @@ function ProjectDetail() {
   const projectProgress = calculateProjectProgress();
   const progressDetails = calculateDetailedProgress();
   const epicBreakdown = getEpicProgressBreakdown();
+  const teamCapacity = getTeamCapacity();
+  const projectCosts = calculateProjectCost();
 
   return (
     <div className="project-detail-page">
@@ -226,7 +271,6 @@ function ProjectDetail() {
                 disabled={syncing}
               >
                 {!syncing && <span>🔄</span>}
-                
                 {syncing ? 'Syncing...' : 'Sync Progress'}
               </button>
             </div>
@@ -259,19 +303,46 @@ function ProjectDetail() {
                 <span style={{ fontSize: '24px' }}>👥</span>
               </div>
               <div className="stat-content">
-                <div className="stat-number">{project.developers?.length || 0}</div>
-                <div className="stat-label">Team Members</div>
+                <div className="stat-number">{teamCapacity.current}/{teamCapacity.max}</div>
+                <div className="stat-label">Team Capacity</div>
               </div>
             </div>
 
             <div className="stat-card">
               <div className="stat-icon">
-                <span style={{ fontSize: '24px' }}>📋</span>
+                <span style={{ fontSize: '24px' }}>💰</span>
               </div>
               <div className="stat-content">
-                <div className="stat-number">{progressDetails.total}</div>
-                <div className="stat-label">Total Issues</div>
+                <div className="stat-number">€{Math.round(projectCosts.estimated / 1000)}K</div>
+                <div className="stat-label">Est. Cost</div>
               </div>
+            </div>
+          </div>
+
+          {/* Team Capacity Hero */}
+          <div className="team-capacity-hero">
+            <div className="capacity-header">
+              <h3>Team Capacity</h3>
+              <div className="capacity-stats">
+                <span className="capacity-current">{teamCapacity.current}</span>
+                <span className="capacity-separator">/</span>
+                <span className="capacity-max">{teamCapacity.max}</span>
+                <span className="capacity-percentage">({teamCapacity.percentage}%)</span>
+              </div>
+            </div>
+            <div className="capacity-bar large">
+              <div 
+                className="capacity-fill"
+                style={{ 
+                  width: `${Math.min(teamCapacity.percentage, 100)}%`,
+                  backgroundColor: getCapacityColor(teamCapacity.status)
+                }}
+              ></div>
+            </div>
+            <div className="capacity-status">
+              {teamCapacity.status === 'full' && 'Team is at full capacity'}
+              {teamCapacity.status === 'nearly-full' && 'Team is nearly at capacity'}
+              {teamCapacity.status === 'available' && 'Team has available capacity'}
             </div>
           </div>
 
@@ -306,6 +377,33 @@ function ProjectDetail() {
             </div>
           </div>
 
+          {/* Cost Overview */}
+          <div className="cost-overview-hero">
+            <div className="cost-header">
+              <h3>Project Costs</h3>
+            </div>
+            <div className="cost-breakdown">
+              <div className="cost-item">
+                <div className="cost-label">Estimated Budget</div>
+                <div className="cost-amount">€{projectCosts.estimated.toLocaleString()}</div>
+                <div className="cost-details">{project.max_team_members} max × {getProjectDuration()} days</div>
+              </div>
+              <div className="cost-item">
+                <div className="cost-label">Current Projection</div>
+                <div className="cost-amount">€{projectCosts.current.toLocaleString()}</div>
+                <div className="cost-details">{teamCapacity.current} members × {getProjectDuration()} days</div>
+              </div>
+            </div>
+            <div className="cost-savings">
+              {projectCosts.current < projectCosts.estimated && (
+                <div className="savings-indicator">
+                  <span className="savings-icon">💰</span>
+                  <span>Potential savings: €{(projectCosts.estimated - projectCosts.current).toLocaleString()}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Epic Progress Breakdown */}
           {epicBreakdown.length > 0 && (
             <div className="epic-progress-breakdown">
@@ -337,6 +435,28 @@ function ProjectDetail() {
           )}
         </div>
       </div>
+
+      {/* Team Capacity Warning */}
+      {teamCapacity.status !== 'available' && (
+        <div className="team-capacity-warning">
+          <div className={`capacity-alert ${teamCapacity.status === 'full' ? 'warning' : 'info'}`}>
+            <span className="alert-icon">
+              {teamCapacity.status === 'full' ? '⚠️' : 'ℹ️'}
+            </span>
+            <div className="alert-content">
+              <strong>
+                {teamCapacity.status === 'full' ? 'Team at Full Capacity' : 'Team Nearly Full'}
+              </strong>
+              <p>
+                {teamCapacity.status === 'full' 
+                  ? 'This project has reached its maximum team size. Remove a member before adding new ones.'
+                  : 'This project is approaching its maximum team size. Consider the capacity when adding new members.'
+                }
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Navigation Tabs */}
       <div className="project-tabs-container">
@@ -420,6 +540,93 @@ function ProjectDetail() {
                       </div>
                     </div>
                   )}
+                </div>
+              </div>
+
+              {/* Team Capacity Overview */}
+              <div className="overview-card glass">
+                <div className="card-header">
+                  <h3>Team Capacity</h3>
+                  <span style={{ fontSize: '20px' }}>👥</span>
+                </div>
+                <div className="card-content">
+                  <div className="team-capacity-overview">
+                    <div className="capacity-visual">
+                      <div 
+                        className="capacity-circle"
+                        style={{ '--percentage': teamCapacity.percentage }}
+                      >
+                        <span className="capacity-percentage-text">{teamCapacity.percentage}%</span>
+                        <span className="capacity-label-text">Capacity</span>
+                      </div>
+                      <div className="capacity-details">
+                        <div className="capacity-stat">
+                          <span className="stat-number">{teamCapacity.current}</span>
+                          <span className="stat-label">Current Team</span>
+                        </div>
+                        <div className="capacity-stat">
+                          <span className="stat-number">{teamCapacity.max}</span>
+                          <span className="stat-label">Max Capacity</span>
+                        </div>
+                        <div className="capacity-stat">
+                          <span className="stat-number">{teamCapacity.max - teamCapacity.current}</span>
+                          <span className="stat-label">Available</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="capacity-status-text" style={{ color: getCapacityColor(teamCapacity.status) }}>
+                      {teamCapacity.status === 'full' && '🔴 Team is at full capacity'}
+                      {teamCapacity.status === 'nearly-full' && '🟡 Team is nearly at capacity'}
+                      {teamCapacity.status === 'available' && '🟢 Team has available capacity'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Cost Breakdown */}
+              <div className="overview-card glass">
+                <div className="card-header">
+                  <h3>Cost Analysis</h3>
+                  <span style={{ fontSize: '20px' }}>💰</span>
+                </div>
+                <div className="card-content">
+                  <div className="cost-analysis">
+                    <div className="cost-comparison">
+                      <div className="cost-bar-container">
+                        <div className="cost-bar-label">Budget vs Current</div>
+                        <div className="cost-bar">
+                          <div 
+                            className="cost-bar-fill estimated"
+                            style={{ width: '100%' }}
+                          >
+                            <span className="cost-bar-text">€{projectCosts.estimated.toLocaleString()}</span>
+                          </div>
+                          <div 
+                            className="cost-bar-fill current"
+                            style={{ width: `${(projectCosts.current / projectCosts.estimated) * 100}%` }}
+                          >
+                            <span className="cost-bar-text">€{projectCosts.current.toLocaleString()}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="cost-details-grid">
+                      <div className="cost-detail">
+                        <span className="cost-detail-label">Estimated Budget:</span>
+                        <span className="cost-detail-value">€{projectCosts.estimated.toLocaleString()}</span>
+                      </div>
+                      <div className="cost-detail">
+                        <span className="cost-detail-label">Current Projection:</span>
+                        <span className="cost-detail-value">€{projectCosts.current.toLocaleString()}</span>
+                      </div>
+                      <div className="cost-detail">
+                        <span className="cost-detail-label">Difference:</span>
+                        <span className={`cost-detail-value ${projectCosts.current <= projectCosts.estimated ? 'positive' : 'negative'}`}>
+                          {projectCosts.current <= projectCosts.estimated ? '-' : '+'}€{Math.abs(projectCosts.estimated - projectCosts.current).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -641,6 +848,7 @@ function ProjectDetail() {
             <DeveloperPicker
               selectedDevelopers={project.developers || []}
               onUpdate={(developers) => updateProject({ developers: developers })}
+              maxTeamMembers={project.max_team_members}
             />
           </div>
         )}
