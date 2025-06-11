@@ -134,7 +134,24 @@ function ProjectsTimeline() {
     };
   }, [filteredProjects]);
 
-  // Generate month markers
+  // Define helper functions that depend on timelineBounds
+  const getPositionForDate = useMemo(() => {
+    return (date) => {
+      if (!timelineBounds) return 0;
+      const daysDiff = differenceInDays(date, timelineBounds.start);
+      return Math.max(0, Math.min(100, (daysDiff / timelineBounds.totalDays) * 100));
+    };
+  }, [timelineBounds]);
+
+  const getWidth = useMemo(() => {
+    return (start, end) => {
+      const startPos = getPositionForDate(start);
+      const endPos = getPositionForDate(end);
+      return Math.max(2, endPos - startPos);
+    };
+  }, [getPositionForDate]);
+
+  // Generate month markers - now using the memoized getPositionForDate
   const monthMarkers = useMemo(() => {
     if (!timelineBounds) return [];
     
@@ -146,19 +163,7 @@ function ProjectsTimeline() {
       label: format(date, 'MMM yyyy'),
       position: getPositionForDate(date)
     }));
-  }, [timelineBounds]);
-
-  const getPositionForDate = (date) => {
-    if (!timelineBounds) return 0;
-    const daysDiff = differenceInDays(date, timelineBounds.start);
-    return Math.max(0, Math.min(100, (daysDiff / timelineBounds.totalDays) * 100));
-  };
-
-  const getWidth = (start, end) => {
-    const startPos = getPositionForDate(start);
-    const endPos = getPositionForDate(end);
-    return Math.max(2, endPos - startPos);
-  };
+  }, [timelineBounds, getPositionForDate]);
 
   const getDaysRemaining = (project) => {
     const today = new Date();
