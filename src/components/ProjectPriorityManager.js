@@ -9,8 +9,10 @@ function ProjectPriorityManager({ projects, onUpdate, onClose }) {
   const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
-    // Sort projects by company_priority
-    const sorted = [...projects].sort((a, b) => (a.company_priority || 999) - (b.company_priority || 999));
+    // Sort projects by company_priority and ensure they have valid IDs
+    const sorted = [...projects]
+      .filter(project => project && project.id) // Filter out invalid projects
+      .sort((a, b) => (a.company_priority || 999) - (b.company_priority || 999));
     setSortedProjects(sorted);
   }, [projects]);
 
@@ -60,7 +62,9 @@ function ProjectPriorityManager({ projects, onUpdate, onClose }) {
   };
 
   const resetChanges = () => {
-    const sorted = [...projects].sort((a, b) => (a.company_priority || 999) - (b.company_priority || 999));
+    const sorted = [...projects]
+      .filter(project => project && project.id)
+      .sort((a, b) => (a.company_priority || 999) - (b.company_priority || 999));
     setSortedProjects(sorted);
     setHasChanges(false);
   };
@@ -80,6 +84,36 @@ function ProjectPriorityManager({ projects, onUpdate, onClose }) {
     if (priority <= 20) return 'priority-low';
     return 'priority-very-low';
   };
+
+  // Don't render if no projects
+  if (!sortedProjects || sortedProjects.length === 0) {
+    return (
+      <div className="priority-manager-overlay">
+        <div className="priority-manager glass">
+          <div className="priority-manager-header">
+            <div className="header-content">
+              <h2>
+                <span className="header-icon">🎯</span>
+                Manage Company Priorities
+              </h2>
+              <p className="header-subtitle">No projects available to prioritize.</p>
+            </div>
+            <button onClick={onClose} className="close-btn">
+              <span>✕</span>
+            </button>
+          </div>
+          <div className="priority-manager-footer">
+            <div className="footer-actions">
+              <button onClick={onClose} className="btn btn-secondary">
+                <span>❌</span>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="priority-manager-overlay">
@@ -116,7 +150,7 @@ function ProjectPriorityManager({ projects, onUpdate, onClose }) {
           </div>
 
           <DragDropContext onDragEnd={handleDragEnd}>
-            <Droppable droppableId="priority-projects-list">
+            <Droppable droppableId="priority-projects-droppable">
               {(provided, snapshot) => (
                 <div
                   {...provided.droppableProps}
@@ -125,8 +159,8 @@ function ProjectPriorityManager({ projects, onUpdate, onClose }) {
                 >
                   {sortedProjects.map((project, index) => (
                     <Draggable 
-                      key={`project-${project.id}`} 
-                      draggableId={`project-${project.id}`} 
+                      key={`priority-project-${project.id}`} 
+                      draggableId={`priority-project-${project.id}`} 
                       index={index}
                     >
                       {(provided, snapshot) => (
@@ -200,7 +234,6 @@ function ProjectPriorityManager({ projects, onUpdate, onClose }) {
               disabled={!hasChanges || loading}
             >
               {!loading && <span>✅</span>}
-              }
               {loading ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
