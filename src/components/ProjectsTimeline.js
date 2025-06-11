@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Gantt, Task, EventOption, StylingOption, ViewMode, DisplayOption } from 'gantt-task-react';
 import { projectAPI } from '../services/api';
@@ -13,10 +13,49 @@ function ProjectsTimeline() {
   const [filterBy, setFilterBy] = useState('all');
   const [sortBy, setSortBy] = useState('start_date');
   const [showProgress, setShowProgress] = useState(true);
+  const ganttRef = useRef(null);
 
   useEffect(() => {
     fetchProjects();
   }, []);
+
+  // Auto-scroll to current month when Gantt is loaded
+  useEffect(() => {
+    if (ganttRef.current && projects.length > 0) {
+      // Small delay to ensure Gantt is fully rendered
+      setTimeout(() => {
+        const today = new Date();
+        const ganttContainer = ganttRef.current.querySelector('.gantt-horizontal-scroll');
+        
+        if (ganttContainer) {
+          // Calculate approximate position for today
+          const startOfYear = new Date(today.getFullYear(), 0, 1);
+          const daysSinceStart = differenceInDays(today, startOfYear);
+          
+          // Estimate scroll position based on column width and view mode
+          let scrollPosition = 0;
+          switch (viewMode) {
+            case ViewMode.Month:
+              scrollPosition = (today.getMonth() * 350) - 200; // Center on current month
+              break;
+            case ViewMode.Week:
+              scrollPosition = (daysSinceStart / 7 * 300) - 400;
+              break;
+            case ViewMode.Day:
+              scrollPosition = (daysSinceStart * 80) - 600;
+              break;
+            case ViewMode.Year:
+              scrollPosition = 0; // Year view shows full year
+              break;
+            default:
+              scrollPosition = 0;
+          }
+          
+          ganttContainer.scrollLeft = Math.max(0, scrollPosition);
+        }
+      }, 500);
+    }
+  }, [projects, viewMode]);
 
   const fetchProjects = async () => {
     try {
@@ -70,6 +109,80 @@ function ProjectsTimeline() {
     if (priority <= 10) return '#007aff';
     if (priority <= 20) return '#34c759';
     return '#5ac8fa';
+  };
+
+  // Check if a developer is available for a new project
+  const isDeveloperAvailable = (developerId, newProjectStart, newProjectEnd) => {
+    const today = new Date();
+    
+    // Check all projects for conflicts
+    for (const project of projects) {
+      if (!project.developers) continue;
+      
+      // Check if developer is assigned to this project
+      const isAssigned = project.developers.some(dev => dev.id === developerId);
+      if (!isAssigned) continue;
+      
+      const projectStart = new Date(project.start_date);
+      const projectEnd = new Date(project.end_date);
+      const projectProgress = calculateProjectProgress(project);
+      
+      // Skip if project is completed (90%+ progress)
+      if (projectProgress >= 90) continue;
+      
+      // Skip if project has already ended
+      if (projectEnd < today) continue;
+      
+      // Check for date overlap
+      const newStart = new Date(newProjectStart);
+      const newEnd = new Date(newProjectEnd);
+      
+      const hasOverlap = (newStart <= projectEnd && newEnd >= projectStart);
+      
+      if (hasOverlap) {
+        return {
+          available: false,
+          conflictProject: project,
+          conflictDates: {
+            start: format(projectStart, 'MMM d, yyyy'),
+            end: format(projectEnd, 'MMM d, yyyy')
+          },
+          projectProgress: projectProgress
+        };
+      }
+    }
+    
+    return { available: true };
+  };
+
+  // Get developer availability summary
+  const getDeveloperAvailabilitySummary = () => {
+    const today = new Date();
+    const allDevelopers = new Set();
+    const busyDevelopers = new Set();
+    
+    // Collect all developers and check their availability
+    projects.forEach(project => {
+      if (!project.developers) return;
+      
+      project.developers.forEach(dev => {
+        allDevelopers.add(dev.id);
+        
+        const projectEnd = new Date(project.end_date);
+        const projectProgress = calculateProjectProgress(project);
+        
+        // Developer is busy if project is not completed and hasn't ended
+        if (projectProgress < 90 && projectEnd >= today) {
+          busyDevelopers.add(dev.id);
+        }
+      });
+    });
+    
+    return {
+      total: allDevelopers.size,
+      busy: busyDevelopers.size,
+      available: allDevelopers.size - busyDevelopers.size
+    };
   };
 
   // Filter and sort projects
@@ -175,6 +288,9 @@ function ProjectsTimeline() {
     ? Math.round(filteredProjects.reduce((sum, p) => sum + calculateProjectProgress(p), 0) / filteredProjects.length)
     : 0;
 
+  // Get developer availability stats
+  const developerStats = getDeveloperAvailabilitySummary();
+
   // Gantt event handlers
   const handleTaskClick = (task) => {
     if (task.project) {
@@ -205,7 +321,7 @@ function ProjectsTimeline() {
               Projects Timeline Dashboard
             </h1>
             <p className="timeline-subtitle">
-              Interactive Gantt chart with real-time progress tracking, priority visualization, and comprehensive project insights
+              Interactive Gantt chart with real-time progress tracking, priority visualization, and developer availability management
             </p>
           </div>
           
@@ -217,7 +333,7 @@ function ProjectsTimeline() {
           </div>
         </div>
 
-        {/* Focused KPI Dashboard - Removed Total and Active */}
+        {/* Focused KPI Dashboard - Removed Total and Active + Added Developer Availability */}
         <div className="timeline-stats">
           <div className="stat-card glass">
             <div className="stat-icon-container urgent">
@@ -274,10 +390,25 @@ function ProjectsTimeline() {
               </div>
             </div>
           </div>
+
+          {/* NEW: Developer Availability Card */}
+          <div className="stat-card glass highlight">
+            <div className="stat-icon-container success">
+              <span className="stat-icon">👥</span>
+            </div>
+            <div className="stat-content">
+              <div className="stat-number">{developerStats.available}/{developerStats.total}</div>
+              <div className="stat-label">Available Devs</div>
+              <div className="stat-trend">
+                <span className="trend-icon">🟢</span>
+                <span className="trend-text">{developerStats.busy} busy</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Enhanced Gantt Chart Controls */}
+      {/* Enhanced Controls Bar */}
       <div className="timeline-controls-bar glass">
         <div className="controls-left">
           <div className="view-controls">
@@ -377,7 +508,7 @@ function ProjectsTimeline() {
           </div>
         </div>
       ) : (
-        <div className="gantt-container glass">
+        <div className="gantt-container glass" ref={ganttRef}>
           <div className="gantt-header">
             <h2>
               <span className="gantt-icon">📊</span>
@@ -391,7 +522,7 @@ function ProjectsTimeline() {
                 </span>
                 <span className="info-badge">
                   <span className="badge-icon">📅</span>
-                  Today line shows current date
+                  Auto-scrolled to current month
                 </span>
                 <span className="info-badge">
                   <span className="badge-icon">📊</span>
@@ -400,6 +531,10 @@ function ProjectsTimeline() {
                 <span className="info-badge">
                   <span className="badge-icon">🎯</span>
                   Colors indicate priority levels
+                </span>
+                <span className="info-badge">
+                  <span className="badge-icon">👥</span>
+                  Developer availability tracked
                 </span>
               </div>
             </div>
@@ -552,6 +687,28 @@ function ProjectsTimeline() {
         </div>
 
         <div className="legend-section">
+          <h4>👥 Developer Availability</h4>
+          <div className="legend-items">
+            <div className="legend-item">
+              <span>🟢</span>
+              <span className="legend-label">Available developers can be assigned to new projects</span>
+            </div>
+            <div className="legend-item">
+              <span>🔴</span>
+              <span className="legend-label">Busy developers are assigned to active projects</span>
+            </div>
+            <div className="legend-item">
+              <span>✅</span>
+              <span className="legend-label">Developers become available when projects reach 90%</span>
+            </div>
+            <div className="legend-item">
+              <span>📅</span>
+              <span className="legend-label">Availability checked against project date ranges</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="legend-section">
           <h4>🎮 Interactive Features</h4>
           <div className="legend-items">
             <div className="legend-item">
@@ -564,7 +721,7 @@ function ProjectsTimeline() {
             </div>
             <div className="legend-item">
               <span>📅</span>
-              <span className="legend-label">Red today line shows current date</span>
+              <span className="legend-label">Auto-scrolls to current month on page load</span>
             </div>
             <div className="legend-item">
               <span>🔍</span>
@@ -577,32 +734,6 @@ function ProjectsTimeline() {
             <div className="legend-item">
               <span>🎯</span>
               <span className="legend-label">Bar colors indicate company priority</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="legend-section">
-          <h4>📈 Key Insights</h4>
-          <div className="legend-items">
-            <div className="legend-item">
-              <span>📊</span>
-              <span className="legend-label">Visual timeline shows project overlaps</span>
-            </div>
-            <div className="legend-item">
-              <span>⚡</span>
-              <span className="legend-label">Filter by status to focus on specific projects</span>
-            </div>
-            <div className="legend-item">
-              <span>🔄</span>
-              <span className="legend-label">Sort by priority, progress, or dates</span>
-            </div>
-            <div className="legend-item">
-              <span>📅</span>
-              <span className="legend-label">Today marker helps track current status</span>
-            </div>
-            <div className="legend-item">
-              <span>🎯</span>
-              <span className="legend-label">Progress bars show real epic completion</span>
             </div>
           </div>
         </div>

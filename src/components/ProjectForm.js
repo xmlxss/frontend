@@ -179,7 +179,7 @@ function ProjectForm() {
       <div className="form-card">
         <div className="form-header">
           <h1>Create New Project</h1>
-          <p className="form-subtitle">Define a new project with company priority and cost estimation based on business days</p>
+          <p className="form-subtitle">Define a new project with company priority, cost estimation, and developer availability tracking</p>
         </div>
         
         <form onSubmit={handleSubmit} className="project-form">
@@ -274,6 +274,10 @@ function ProjectForm() {
                   <div className="explanation-item">
                     <span className="explanation-number">3</span>
                     <span className="explanation-text">You can easily reorder projects later in the dashboard</span>
+                  </div>
+                  <div className="explanation-item">
+                    <span className="explanation-number">4</span>
+                    <span className="explanation-text">Developer availability is checked against project dates</span>
                   </div>
                 </div>
               </div>
@@ -378,6 +382,24 @@ function ProjectForm() {
               )}
             </div>
           </div>
+
+          {/* Developer Availability Note */}
+          {formData.start_date && formData.end_date && (
+            <div className="availability-note">
+              <div className="note-header">
+                <span className="note-icon">👥</span>
+                <span className="note-title">Developer Availability</span>
+              </div>
+              <div className="note-content">
+                <p>When you assign team members to this project, the system will automatically check their availability for the selected date range ({new Date(formData.start_date).toLocaleDateString()} - {new Date(formData.end_date).toLocaleDateString()}).</p>
+                <ul>
+                  <li>✅ Available developers can be assigned immediately</li>
+                  <li>⚠️ Busy developers will show conflict warnings with existing projects</li>
+                  <li>🔄 Developers become available when their current projects reach 90% completion</li>
+                </ul>
+              </div>
+            </div>
+          )}
 
           {costEstimation.cost > 0 && (
             <div className="cost-estimation-card">

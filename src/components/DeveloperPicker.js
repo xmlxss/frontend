@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { teamsAPI, debounce } from '../services/api';
+import { teamsAPI, debounce, projectAPI } from '../services/api';
 import '../styles/DeveloperPicker.css';
 
-function DeveloperPicker({ selectedDevelopers, onUpdate, maxTeamMembers = null }) {
+function DeveloperPicker({ selectedDevelopers, onUpdate, maxTeamMembers = null, projectStartDate = null, projectEndDate = null }) {
   const [allDevelopers, setAllDevelopers] = useState([]);
   const [displayedDevelopers, setDisplayedDevelopers] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -10,9 +10,12 @@ function DeveloperPicker({ selectedDevelopers, onUpdate, maxTeamMembers = null }
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTeam, setActiveTeam] = useState('all');
   const [availableTeams, setAvailableTeams] = useState([]);
+  const [allProjects, setAllProjects] = useState([]);
+  const [developerAvailability, setDeveloperAvailability] = useState({});
 
   useEffect(() => {
     fetchDevelopers();
+    fetchAllProjects();
   }, []);
 
   useEffect(() => {
@@ -22,6 +25,12 @@ function DeveloperPicker({ selectedDevelopers, onUpdate, maxTeamMembers = null }
   useEffect(() => {
     setSelected(selectedDevelopers);
   }, [selectedDevelopers]);
+
+  useEffect(() => {
+    if (allProjects.length > 0 && projectStartDate && projectEndDate) {
+      checkDeveloperAvailability();
+    }
+  }, [allProjects, projectStartDate, projectEndDate]);
 
   const fetchDevelopers = async () => {
     setLoading(true);
@@ -47,6 +56,77 @@ function DeveloperPicker({ selectedDevelopers, onUpdate, maxTeamMembers = null }
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchAllProjects = async () => {
+    try {
+      const response = await projectAPI.getAll();
+      setAllProjects(response.data || []);
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+      setAllProjects([]);
+    }
+  };
+
+  // Calculate project progress based on linked epics
+  const calculateProjectProgress = (project) => {
+    if (!project.jira_epics || project.jira_epics.length === 0) {
+      return 0;
+    }
+
+    const totalProgress = project.jira_epics.reduce((sum, epic) => {
+      return sum + (epic.progress || 0);
+    }, 0);
+
+    return Math.round(totalProgress / project.jira_epics.length);
+  };
+
+  const checkDeveloperAvailability = () => {
+    const availability = {};
+    const today = new Date();
+    const newProjectStart = new Date(projectStartDate);
+    const newProjectEnd = new Date(projectEndDate);
+
+    allDevelopers.forEach(developer => {
+      availability[developer.id] = {
+        available: true,
+        conflicts: []
+      };
+
+      // Check all projects for conflicts
+      allProjects.forEach(project => {
+        if (!project.developers) return;
+        
+        // Check if developer is assigned to this project
+        const isAssigned = project.developers.some(dev => dev.id === developer.id);
+        if (!isAssigned) return;
+        
+        const projectStart = new Date(project.start_date);
+        const projectEnd = new Date(project.end_date);
+        const projectProgress = calculateProjectProgress(project);
+        
+        // Skip if project is completed (90%+ progress)
+        if (projectProgress >= 90) return;
+        
+        // Skip if project has already ended
+        if (projectEnd < today) return;
+        
+        // Check for date overlap with new project
+        const hasOverlap = (newProjectStart <= projectEnd && newProjectEnd >= projectStart);
+        
+        if (hasOverlap) {
+          availability[developer.id].available = false;
+          availability[developer.id].conflicts.push({
+            project: project,
+            startDate: projectStart,
+            endDate: projectEnd,
+            progress: projectProgress
+          });
+        }
+      });
+    });
+
+    setDeveloperAvailability(availability);
   };
 
   const filterDevelopers = () => {
@@ -105,6 +185,15 @@ function DeveloperPicker({ selectedDevelopers, onUpdate, maxTeamMembers = null }
     return selected.some(s => s.id === developer.id);
   };
 
+  const isDeveloperAvailable = (developer) => {
+    if (!projectStartDate || !projectEndDate) return true;
+    return developerAvailability[developer.id]?.available !== false;
+  };
+
+  const getDeveloperConflicts = (developer) => {
+    return developerAvailability[developer.id]?.conflicts || [];
+  };
+
   const isAtCapacity = () => {
     return maxTeamMembers && selected.length >= maxTeamMembers;
   };
@@ -152,6 +241,17 @@ function DeveloperPicker({ selectedDevelopers, onUpdate, maxTeamMembers = null }
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
 
+  // Get availability stats
+  const getAvailabilityStats = () => {
+    const total = displayedDevelopers.length;
+    const available = displayedDevelopers.filter(dev => isDeveloperAvailable(dev)).length;
+    const busy = total - available;
+    
+    return { total, available, busy };
+  };
+
+  const availabilityStats = getAvailabilityStats();
+
   return (
     <div className="developer-picker fade-in">
       <div className="picker-header">
@@ -159,6 +259,9 @@ function DeveloperPicker({ selectedDevelopers, onUpdate, maxTeamMembers = null }
           <h2>Team Members</h2>
           <span className="picker-subtitle">
             {allDevelopers.length} total members • {availableTeams.length} teams
+            {projectStartDate && projectEndDate && (
+              <span> • Availability checked for project dates</span>
+            )}
           </span>
         </div>
         <div className="picker-actions">
@@ -175,6 +278,38 @@ function DeveloperPicker({ selectedDevelopers, onUpdate, maxTeamMembers = null }
           </button>
         </div>
       </div>
+
+      {/* Availability Stats */}
+      {projectStartDate && projectEndDate && (
+        <div className="availability-stats glass">
+          <div className="stats-header">
+            <h3>
+              <span className="stats-icon">📊</span>
+              Developer Availability
+            </h3>
+            <span className="stats-subtitle">
+              For project period: {new Date(projectStartDate).toLocaleDateString()} - {new Date(projectEndDate).toLocaleDateString()}
+            </span>
+          </div>
+          <div className="stats-grid">
+            <div className="stat-item available">
+              <div className="stat-number">{availabilityStats.available}</div>
+              <div className="stat-label">Available</div>
+              <div className="stat-icon">🟢</div>
+            </div>
+            <div className="stat-item busy">
+              <div className="stat-number">{availabilityStats.busy}</div>
+              <div className="stat-label">Busy</div>
+              <div className="stat-icon">🔴</div>
+            </div>
+            <div className="stat-item total">
+              <div className="stat-number">{availabilityStats.total}</div>
+              <div className="stat-label">Total</div>
+              <div className="stat-icon">👥</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Team Capacity Indicator */}
       {maxTeamMembers && (
@@ -395,11 +530,15 @@ function DeveloperPicker({ selectedDevelopers, onUpdate, maxTeamMembers = null }
             ) : (
               displayedDevelopers.filter(dev => !isDeveloperSelected(dev)).map(developer => {
                 const canAdd = !isAtCapacity();
+                const isAvailable = isDeveloperAvailable(developer);
+                const conflicts = getDeveloperConflicts(developer);
+                const canAssign = canAdd && isAvailable;
+                
                 return (
                   <div 
                     key={developer.id} 
-                    className={`developer-card glass ${!canAdd ? 'disabled' : ''}`}
-                    onClick={() => canAdd && toggleDeveloper(developer)}
+                    className={`developer-card glass ${!canAssign ? 'disabled' : ''} ${!isAvailable ? 'unavailable' : ''}`}
+                    onClick={() => canAssign && toggleDeveloper(developer)}
                   >
                     <div className="developer-avatar-container">
                       {developer.avatar ? (
@@ -413,11 +552,55 @@ function DeveloperPicker({ selectedDevelopers, onUpdate, maxTeamMembers = null }
                           {getInitials(developer.name)}
                         </div>
                       )}
-                      <div className="online-indicator"></div>
+                      <div className={`availability-indicator ${isAvailable ? 'available' : 'busy'}`}>
+                        {isAvailable ? '🟢' : '🔴'}
+                      </div>
                     </div>
                     <div className="developer-info">
                       <h4 className="developer-name">{developer.name}</h4>
                       <p className="developer-email">{developer.email}</p>
+                      
+                      {/* Availability Status */}
+                      {projectStartDate && projectEndDate && (
+                        <div className="availability-status">
+                          {isAvailable ? (
+                            <span className="status-available">
+                              <span className="status-icon">✅</span>
+                              Available for project
+                            </span>
+                          ) : (
+                            <span className="status-busy">
+                              <span className="status-icon">⚠️</span>
+                              Busy ({conflicts.length} conflict{conflicts.length !== 1 ? 's' : ''})
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Show conflicts if any */}
+                      {conflicts.length > 0 && (
+                        <div className="conflicts-info">
+                          <div className="conflicts-header">
+                            <span className="conflicts-icon">📅</span>
+                            <span className="conflicts-text">Project Conflicts:</span>
+                          </div>
+                          {conflicts.slice(0, 2).map((conflict, index) => (
+                            <div key={index} className="conflict-item">
+                              <span className="conflict-project">{conflict.project.title}</span>
+                              <span className="conflict-dates">
+                                {conflict.startDate.toLocaleDateString()} - {conflict.endDate.toLocaleDateString()}
+                              </span>
+                              <span className="conflict-progress">({conflict.progress}% complete)</span>
+                            </div>
+                          ))}
+                          {conflicts.length > 2 && (
+                            <div className="conflicts-more">
+                              +{conflicts.length - 2} more conflicts
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
                       <div className="developer-teams">
                         {developer.primary_team && developer.primary_team !== 'No Team Assigned' && (
                           <span 
@@ -459,14 +642,14 @@ function DeveloperPicker({ selectedDevelopers, onUpdate, maxTeamMembers = null }
                     </div>
                     <div className="developer-actions">
                       <button 
-                        className={`btn btn-primary btn-sm ${!canAdd ? 'disabled' : ''}`}
-                        disabled={!canAdd}
+                        className={`btn btn-primary btn-sm ${!canAssign ? 'disabled' : ''}`}
+                        disabled={!canAssign}
                       >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                           <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" strokeWidth="2"/>
                           <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" strokeWidth="2"/>
                         </svg>
-                        {canAdd ? 'Add Member' : 'Team Full'}
+                        {!canAdd ? 'Team Full' : !isAvailable ? 'Unavailable' : 'Add Member'}
                       </button>
                     </div>
                   </div>
