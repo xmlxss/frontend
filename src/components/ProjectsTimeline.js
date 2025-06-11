@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Gantt, Task, EventOption, StylingOption, ViewMode, DisplayOption } from 'gantt-task-react';
 import { projectAPI } from '../services/api';
-import { format, differenceInDays, addDays } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
 import "gantt-task-react/dist/index.css";
 import '../styles/ProjectsTimeline.css';
 
@@ -19,43 +19,73 @@ function ProjectsTimeline() {
     fetchProjects();
   }, []);
 
-  // Auto-scroll to current month when Gantt is loaded
+  // Auto-scroll to current month when Gantt is loaded - FIXED VERSION
   useEffect(() => {
-    if (ganttRef.current && projects.length > 0) {
-      // Small delay to ensure Gantt is fully rendered
-      setTimeout(() => {
-        const today = new Date();
-        const ganttContainer = ganttRef.current.querySelector('.gantt-horizontal-scroll');
-        
-        if (ganttContainer) {
-          // Calculate approximate position for today
-          const startOfYear = new Date(today.getFullYear(), 0, 1);
-          const daysSinceStart = differenceInDays(today, startOfYear);
-          
-          // Estimate scroll position based on column width and view mode
-          let scrollPosition = 0;
-          switch (viewMode) {
-            case ViewMode.Month:
-              scrollPosition = (today.getMonth() * 350) - 200; // Center on current month
-              break;
-            case ViewMode.Week:
-              scrollPosition = (daysSinceStart / 7 * 300) - 400;
-              break;
-            case ViewMode.Day:
-              scrollPosition = (daysSinceStart * 80) - 600;
-              break;
-            case ViewMode.Year:
-              scrollPosition = 0; // Year view shows full year
-              break;
-            default:
-              scrollPosition = 0;
+    if (projects.length > 0) {
+      // Wait for Gantt to be fully rendered
+      const timer = setTimeout(() => {
+        try {
+          // Find the Gantt scroll container
+          const ganttElement = document.querySelector('.gantt-horizontal-scroll');
+          if (!ganttElement) {
+            console.log('Gantt scroll container not found, trying alternative selectors...');
+            // Try alternative selectors
+            const altElement = document.querySelector('.gantt-task-gantt-content-scroll') || 
+                              document.querySelector('.gantt-grid-body') ||
+                              document.querySelector('[class*="gantt"][class*="scroll"]');
+            if (altElement) {
+              scrollToToday(altElement);
+            }
+            return;
           }
           
-          ganttContainer.scrollLeft = Math.max(0, scrollPosition);
+          scrollToToday(ganttElement);
+        } catch (error) {
+          console.error('Error auto-scrolling to today:', error);
         }
-      }, 500);
+      }, 1000); // Increased delay to ensure Gantt is fully loaded
+
+      return () => clearTimeout(timer);
     }
   }, [projects, viewMode]);
+
+  const scrollToToday = (scrollElement) => {
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const startOfYear = new Date(currentYear, 0, 1);
+    const daysSinceStart = differenceInDays(today, startOfYear);
+    
+    let scrollPosition = 0;
+    
+    switch (viewMode) {
+      case ViewMode.Month:
+        // Scroll to current month (each month is roughly 350px wide)
+        scrollPosition = today.getMonth() * 350;
+        break;
+      case ViewMode.Week:
+        // Scroll to current week
+        const weeksSinceStart = Math.floor(daysSinceStart / 7);
+        scrollPosition = weeksSinceStart * 300;
+        break;
+      case ViewMode.Day:
+        // Scroll to current day
+        scrollPosition = daysSinceStart * 80;
+        break;
+      case ViewMode.Year:
+        // Year view shows everything, no scroll needed
+        scrollPosition = 0;
+        break;
+      default:
+        scrollPosition = 0;
+    }
+    
+    // Center the current position in the viewport
+    const containerWidth = scrollElement.clientWidth;
+    const centeredPosition = Math.max(0, scrollPosition - (containerWidth / 2));
+    
+    console.log(`Auto-scrolling to position: ${centeredPosition} (today: ${today.toDateString()})`);
+    scrollElement.scrollLeft = centeredPosition;
+  };
 
   const fetchProjects = async () => {
     try {
@@ -81,37 +111,7 @@ function ProjectsTimeline() {
     return Math.round(totalProgress / project.jira_epics.length);
   };
 
-  const getProjectStatus = (project) => {
-    const progress = calculateProjectProgress(project);
-    const today = new Date();
-    const endDate = new Date(project.end_date);
-    const daysRemaining = differenceInDays(endDate, today);
-    
-    if (progress >= 90) return { label: 'Near Completion', color: '#00d4aa', icon: '🎯' };
-    if (progress >= 75) return { label: 'On Track', color: '#34c759', icon: '✅' };
-    if (daysRemaining < 7 && progress < 75) return { label: 'At Risk', color: '#ff9500', icon: '⚠️' };
-    if (daysRemaining < 0) return { label: 'Overdue', color: '#ff3b30', icon: '🚨' };
-    if (progress < 25) return { label: 'Getting Started', color: '#007aff', icon: '🚀' };
-    return { label: 'In Progress', color: '#007aff', icon: '⏳' };
-  };
-
-  const getPriorityIcon = (priority) => {
-    if (priority === 1) return '🥇';
-    if (priority <= 3) return '🔴';
-    if (priority <= 5) return '🟠';
-    if (priority <= 10) return '🟡';
-    return '🟢';
-  };
-
-  const getPriorityColor = (priority) => {
-    if (priority <= 3) return '#ff3b30';
-    if (priority <= 5) return '#ff9500';
-    if (priority <= 10) return '#007aff';
-    if (priority <= 20) return '#34c759';
-    return '#5ac8fa';
-  };
-
-  // Check if a developer is available for a new project
+  // FIXED: Developer availability checking
   const isDeveloperAvailable = (developerId, newProjectStart, newProjectEnd) => {
     const today = new Date();
     
@@ -155,10 +155,10 @@ function ProjectsTimeline() {
     return { available: true };
   };
 
-  // Get developer availability summary
+  // FIXED: Get developer availability summary
   const getDeveloperAvailabilitySummary = () => {
     const today = new Date();
-    const allDevelopers = new Set();
+    const allDevelopers = new Map(); // Use Map to store developer info
     const busyDevelopers = new Set();
     
     // Collect all developers and check their availability
@@ -166,7 +166,7 @@ function ProjectsTimeline() {
       if (!project.developers) return;
       
       project.developers.forEach(dev => {
-        allDevelopers.add(dev.id);
+        allDevelopers.set(dev.id, dev);
         
         const projectEnd = new Date(project.end_date);
         const projectProgress = calculateProjectProgress(project);
@@ -252,7 +252,7 @@ function ProjectsTimeline() {
       const endDate = new Date(project.end_date);
       
       // Ensure end date is at least one day after start date
-      const adjustedEndDate = endDate <= startDate ? addDays(startDate, 1) : endDate;
+      const adjustedEndDate = endDate <= startDate ? new Date(startDate.getTime() + 24 * 60 * 60 * 1000) : endDate;
 
       return {
         start: startDate,
@@ -290,6 +290,36 @@ function ProjectsTimeline() {
 
   // Get developer availability stats
   const developerStats = getDeveloperAvailabilitySummary();
+
+  const getProjectStatus = (project) => {
+    const progress = calculateProjectProgress(project);
+    const today = new Date();
+    const endDate = new Date(project.end_date);
+    const daysRemaining = differenceInDays(endDate, today);
+    
+    if (progress >= 90) return { label: 'Near Completion', color: '#00d4aa', icon: '🎯' };
+    if (progress >= 75) return { label: 'On Track', color: '#34c759', icon: '✅' };
+    if (daysRemaining < 7 && progress < 75) return { label: 'At Risk', color: '#ff9500', icon: '⚠️' };
+    if (daysRemaining < 0) return { label: 'Overdue', color: '#ff3b30', icon: '🚨' };
+    if (progress < 25) return { label: 'Getting Started', color: '#007aff', icon: '🚀' };
+    return { label: 'In Progress', color: '#007aff', icon: '⏳' };
+  };
+
+  const getPriorityIcon = (priority) => {
+    if (priority === 1) return '🥇';
+    if (priority <= 3) return '🔴';
+    if (priority <= 5) return '🟠';
+    if (priority <= 10) return '🟡';
+    return '🟢';
+  };
+
+  const getPriorityColor = (priority) => {
+    if (priority <= 3) return '#ff3b30';
+    if (priority <= 5) return '#ff9500';
+    if (priority <= 10) return '#007aff';
+    if (priority <= 20) return '#34c759';
+    return '#5ac8fa';
+  };
 
   // Gantt event handlers
   const handleTaskClick = (task) => {

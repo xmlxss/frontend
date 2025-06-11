@@ -293,8 +293,6 @@ function ProjectDetail() {
                 disabled={syncing}
               >
                 {!syncing && <span>🔄</span>}
-                }
-                
                 {syncing ? 'Syncing...' : 'Sync Progress'}
               </button>
             </div>
@@ -901,6 +899,8 @@ function ProjectDetail() {
               selectedDevelopers={project.developers || []}
               onUpdate={(developers) => updateProject({ developers: developers })}
               maxTeamMembers={project.max_team_members}
+              projectStartDate={project.start_date}
+              projectEndDate={project.end_date}
             />
           </div>
         )}
