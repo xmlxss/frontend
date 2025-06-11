@@ -90,64 +90,110 @@
   font-size: var(--font-size-md);
 }
 
-/* Priority Selector */
-.priority-selector {
+/* Priority Input Section */
+.priority-input-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.priority-input-container {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  position: relative;
+}
+
+.priority-input-container input {
+  flex: 1;
+  max-width: 120px;
+}
+
+.input-suffix {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.priority-recommendation {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+}
+
+.recommendation-icon {
+  font-size: var(--font-size-lg);
+}
+
+.recommendation-text {
+  font-weight: 500;
+  font-size: var(--font-size-sm);
+}
+
+/* Priority Explanation */
+.priority-explanation {
+  background: linear-gradient(135deg, var(--bg-tertiary) 0%, rgba(0, 122, 255, 0.05) 100%);
+  border: 1px solid rgba(0, 122, 255, 0.2);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  margin-top: var(--spacing-md);
+}
+
+.explanation-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+}
+
+.explanation-icon {
+  font-size: var(--font-size-lg);
+  color: var(--primary-color);
+}
+
+.explanation-title {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.explanation-content {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-sm);
 }
 
-.priority-option {
+.explanation-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-md);
+  padding: var(--spacing-sm);
+  background: var(--bg-primary);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+}
+
+.explanation-number {
+  background: var(--primary-color);
+  color: var(--text-inverse);
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
-  gap: var(--spacing-md);
-  padding: var(--spacing-md);
-  border: 2px solid var(--glass-border);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  position: relative;
-  overflow: hidden;
-  background: var(--bg-primary);
-}
-
-.priority-option:hover {
-  border-color: var(--priority-color);
-  background: rgba(var(--priority-color-rgb), 0.05);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
-}
-
-.priority-option.selected {
-  border-color: var(--priority-color);
-  background: rgba(var(--priority-color-rgb), 0.1);
-  box-shadow: var(--shadow-md);
-}
-
-.priority-color-bar {
-  width: 4px;
-  height: 40px;
-  border-radius: 2px;
+  justify-content: center;
+  font-size: var(--font-size-sm);
+  font-weight: 700;
   flex-shrink: 0;
 }
 
-.priority-content {
-  flex: 1;
-}
-
-.priority-label {
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: var(--spacing-xs);
-}
-
-.priority-description {
+.explanation-text {
   font-size: var(--font-size-sm);
-  color: var(--text-secondary);
-}
-
-.priority-check {
-  font-size: var(--font-size-lg);
+  color: var(--text-primary);
+  line-height: var(--line-height-relaxed);
 }
 
 /* Team Size Section */
@@ -169,11 +215,6 @@
   max-width: 120px;
 }
 
-.input-suffix {
-  color: var(--text-secondary);
-  font-weight: 500;
-}
-
 .team-size-recommendation {
   display: flex;
   align-items: center;
@@ -182,15 +223,6 @@
   background: var(--bg-tertiary);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
-}
-
-.recommendation-icon {
-  font-size: var(--font-size-lg);
-}
-
-.recommendation-text {
-  font-weight: 500;
-  font-size: var(--font-size-sm);
 }
 
 .team-size-presets {
@@ -513,19 +545,17 @@
     border-width: 3px;
   }
   
-  .priority-option {
-    border-width: 3px;
+  .priority-explanation {
+    border-width: 2px;
   }
 }
 
 /* Reduced motion support */
 @media (prefers-reduced-motion: reduce) {
-  .priority-option,
   .preset-btn {
     transition: none;
   }
   
-  .priority-option:hover,
   .preset-btn:hover {
     transform: none;
   }

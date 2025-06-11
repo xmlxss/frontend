@@ -4,6 +4,7 @@ import { projectAPI } from '../services/api';
 import { format, differenceInDays } from 'date-fns';
 import { calculateProjectCost, getCommonHolidays } from '../utils/dateUtils';
 import SyncManager from './SyncManager';
+import ProjectPriorityManager from './ProjectPriorityManager';
 import '../styles/ProjectList.css';
 
 function ProjectList() {
@@ -11,8 +12,9 @@ function ProjectList() {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [showSyncManager, setShowSyncManager] = useState(false);
+  const [showPriorityManager, setShowPriorityManager] = useState(false);
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
-  const [sortBy, setSortBy] = useState('priority'); // 'priority', 'progress', 'date', 'name'
+  const [sortBy, setSortBy] = useState('company_priority'); // Changed default sort
   const [filterBy, setFilterBy] = useState('all'); // 'all', 'active', 'completed', 'urgent'
 
   useEffect(() => {
@@ -47,6 +49,10 @@ function ProjectList() {
     fetchProjects();
   };
 
+  const handlePriorityUpdate = (updatedProjects) => {
+    setProjects(updatedProjects);
+  };
+
   const handleDelete = async (id, event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -62,29 +68,30 @@ function ProjectList() {
   };
 
   const getPriorityClass = (priority) => {
-    return `priority-${priority.replace('_', '-')}`;
+    // Convert company_priority number to class
+    if (priority <= 3) return 'priority-very-high';
+    if (priority <= 5) return 'priority-high';
+    if (priority <= 10) return 'priority-medium';
+    if (priority <= 20) return 'priority-low';
+    return 'priority-very-low';
   };
 
   const getPriorityLabel = (priority) => {
-    const labels = {
-      'very_high': 'Urgent',
-      'high': 'High',
-      'medium': 'Medium',
-      'low': 'Low',
-      'very_low': 'Very Low'
-    };
-    return labels[priority] || 'Medium';
+    // Convert company_priority number to label
+    if (priority === 1) return `#${priority} - Critical`;
+    if (priority <= 3) return `#${priority} - Urgent`;
+    if (priority <= 5) return `#${priority} - High`;
+    if (priority <= 10) return `#${priority} - Normal`;
+    return `#${priority} - Low`;
   };
 
   const getPriorityIcon = (priority) => {
-    const icons = {
-      'very_high': '🔴',
-      'high': '🟠',
-      'medium': '🟡',
-      'low': '🟢',
-      'very_low': '🔵'
-    };
-    return icons[priority] || '🟡';
+    // Convert company_priority number to icon
+    if (priority === 1) return '🥇';
+    if (priority <= 3) return '🔴';
+    if (priority <= 5) return '🟠';
+    if (priority <= 10) return '🟡';
+    return '🟢';
   };
 
   // Calculate project progress based on linked epics
@@ -197,7 +204,7 @@ function ProjectList() {
         filtered = filtered.filter(p => calculateProjectProgress(p) >= 90);
         break;
       case 'urgent':
-        filtered = filtered.filter(p => p.priority === 'very_high' || p.priority === 'high');
+        filtered = filtered.filter(p => p.company_priority <= 5); // Top 5 priorities are urgent
         break;
       default:
         break;
@@ -205,9 +212,8 @@ function ProjectList() {
 
     // Apply sorting
     switch (sortBy) {
-      case 'priority':
-        const priorityOrder = ['very_high', 'high', 'medium', 'low', 'very_low'];
-        filtered.sort((a, b) => priorityOrder.indexOf(a.priority) - priorityOrder.indexOf(b.priority));
+      case 'company_priority':
+        filtered.sort((a, b) => (a.company_priority || 999) - (b.company_priority || 999));
         break;
       case 'progress':
         filtered.sort((a, b) => calculateProjectProgress(b) - calculateProjectProgress(a));
@@ -229,7 +235,7 @@ function ProjectList() {
 
   // Calculate dashboard stats
   const totalProjects = projects.length;
-  const urgentProjects = projects.filter(p => p.priority === 'very_high' || p.priority === 'high').length;
+  const urgentProjects = projects.filter(p => p.company_priority <= 5).length; // Top 5 priorities
   const completedProjects = projects.filter(p => calculateProjectProgress(p) >= 90).length;
   const averageProgress = projects.length > 0 
     ? Math.round(projects.reduce((sum, p) => sum + calculateProjectProgress(p), 0) / projects.length)
@@ -262,7 +268,7 @@ function ProjectList() {
               Project Dashboard
             </h1>
             <p className="dashboard-subtitle">
-              Track progress, manage priorities, and deliver exceptional results
+              Track progress, manage company priorities, and deliver exceptional results
             </p>
           </div>
           
@@ -306,7 +312,7 @@ function ProjectList() {
               <div className="stat-label">High Priority</div>
               <div className="stat-trend">
                 <span className="trend-icon">⚡</span>
-                <span className="trend-text">Needs attention</span>
+                <span className="trend-text">Top 5 priorities</span>
               </div>
             </div>
           </div>
@@ -361,6 +367,14 @@ function ProjectList() {
               </>
             )}
           </button>
+
+          <button 
+            onClick={() => setShowPriorityManager(!showPriorityManager)}
+            className="quick-action-btn"
+          >
+            <span className="action-icon">🎯</span>
+            <span>Manage Priorities</span>
+          </button>
           
           <div className="view-controls">
             <button 
@@ -390,7 +404,7 @@ function ProjectList() {
               <option value="all">All Projects</option>
               <option value="active">Active</option>
               <option value="completed">Completed</option>
-              <option value="urgent">Urgent</option>
+              <option value="urgent">High Priority (Top 5)</option>
             </select>
 
             <select 
@@ -398,7 +412,7 @@ function ProjectList() {
               onChange={(e) => setSortBy(e.target.value)}
               className="sort-select"
             >
-              <option value="priority">Sort by Priority</option>
+              <option value="company_priority">Sort by Company Priority</option>
               <option value="progress">Sort by Progress</option>
               <option value="date">Sort by Due Date</option>
               <option value="name">Sort by Name</option>
@@ -411,6 +425,17 @@ function ProjectList() {
       {showSyncManager && (
         <div className="sync-manager-section">
           <SyncManager onSyncComplete={handleSyncComplete} />
+        </div>
+      )}
+
+      {/* Priority Manager */}
+      {showPriorityManager && (
+        <div className="priority-manager-section">
+          <ProjectPriorityManager 
+            projects={projects} 
+            onUpdate={handlePriorityUpdate}
+            onClose={() => setShowPriorityManager(false)}
+          />
         </div>
       )}
 
@@ -453,7 +478,7 @@ function ProjectList() {
               <button 
                 onClick={() => {
                   setFilterBy('all');
-                  setSortBy('priority');
+                  setSortBy('company_priority');
                 }}
                 className="btn btn-secondary"
               >
@@ -476,18 +501,18 @@ function ProjectList() {
                   key={project.id} 
                   to={`/projects/${project.id}`}
                   className="project-card glass enhanced"
-                  data-priority={project.priority}
+                  data-priority={getPriorityClass(project.company_priority)}
                 >
                   {/* Project Card Header */}
                   <div className="project-card-header">
                     <div className="project-title-section">
                       <div className="project-title-row">
-                        <span className="priority-icon">{getPriorityIcon(project.priority)}</span>
+                        <span className="priority-icon">{getPriorityIcon(project.company_priority)}</span>
                         <h3 className="project-title">{project.title}</h3>
                       </div>
                       <div className="project-badges">
-                        <span className={`priority-badge ${getPriorityClass(project.priority)}`}>
-                          {getPriorityLabel(project.priority)}
+                        <span className={`priority-badge ${getPriorityClass(project.company_priority)}`}>
+                          {getPriorityLabel(project.company_priority)}
                         </span>
                         <span 
                           className="status-badge"

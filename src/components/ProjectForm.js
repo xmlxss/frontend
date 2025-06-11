@@ -11,19 +11,13 @@ function ProjectForm() {
     description: '',
     start_date: '',
     end_date: '',
-    priority: 'medium',
+    company_priority: 1, // Changed from priority to company_priority
     max_team_members: 5
   });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
 
-  const priorities = [
-    { value: 'very_high', label: 'Urgent', color: '#ff3b30', description: 'Critical priority' },
-    { value: 'high', label: 'High', color: '#ff9500', description: 'Important work' },
-    { value: 'medium', label: 'Medium', color: '#007aff', description: 'Standard priority' },
-    { value: 'low', label: 'Low', color: '#34c759', description: 'Nice to have' },
-    { value: 'very_low', label: 'Very Low', color: '#5ac8fa', description: 'Future consideration' }
-  ];
+  // Remove the old priorities array - we'll use a simple number input instead
 
   const teamSizePresets = [
     { value: 1, label: 'Solo', description: 'Individual contributor' },
@@ -90,6 +84,14 @@ function ProjectForm() {
     if (formData.max_team_members > 100) {
       newErrors.max_team_members = 'Team size cannot exceed 100 members';
     }
+
+    if (!formData.company_priority || formData.company_priority < 1) {
+      newErrors.company_priority = 'Company priority must be at least 1';
+    }
+
+    if (formData.company_priority > 999) {
+      newErrors.company_priority = 'Company priority cannot exceed 999';
+    }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -140,6 +142,15 @@ function ProjectForm() {
     return { icon: '🌟', text: 'Enterprise-scale initiative', color: '#ff3b30' };
   };
 
+  const getPriorityRecommendation = () => {
+    const priority = formData.company_priority;
+    if (priority === 1) return { icon: '🥇', text: 'Highest company priority - immediate attention', color: '#ff3b30' };
+    if (priority <= 3) return { icon: '🔥', text: 'Critical priority - high urgency', color: '#ff9500' };
+    if (priority <= 5) return { icon: '⚡', text: 'Important priority - schedule soon', color: '#ffcc00' };
+    if (priority <= 10) return { icon: '📋', text: 'Standard priority - normal scheduling', color: '#007aff' };
+    return { icon: '📝', text: 'Lower priority - plan for future', color: '#34c759' };
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -161,13 +172,14 @@ function ProjectForm() {
 
   const costEstimation = calculateEstimatedCost();
   const recommendation = getTeamSizeRecommendation();
+  const priorityRecommendation = getPriorityRecommendation();
 
   return (
     <div className="project-form-container">
       <div className="form-card">
         <div className="form-header">
           <h1>Create New Project</h1>
-          <p className="form-subtitle">Define a new project with team size and cost estimation based on business days</p>
+          <p className="form-subtitle">Define a new project with company priority and cost estimation based on business days</p>
         </div>
         
         <form onSubmit={handleSubmit} className="project-form">
@@ -209,31 +221,62 @@ function ProjectForm() {
           </div>
           
           <div className="form-group">
-            <label htmlFor="priority">
+            <label htmlFor="company_priority">
               <span className="label-icon">🎯</span>
-              Priority Level *
+              Company Priority Order *
             </label>
-            <div className="priority-selector">
-              {priorities.map(priority => (
-                <div 
-                  key={priority.value}
-                  className={`priority-option ${formData.priority === priority.value ? 'selected' : ''}`}
-                  onClick={() => setFormData({ ...formData, priority: priority.value })}
-                  style={{ 
-                    '--priority-color': priority.color,
-                    '--priority-color-rgb': priority.color.replace('#', '').match(/.{2}/g).map(x => parseInt(x, 16)).join(', ')
-                  }}
-                >
-                  <div className="priority-color-bar" style={{ backgroundColor: priority.color }}></div>
-                  <div className="priority-content">
-                    <div className="priority-label">{priority.label}</div>
-                    <div className="priority-description">{priority.description}</div>
+            <div className="priority-input-section">
+              <div className="priority-input-container">
+                <input
+                  type="number"
+                  id="company_priority"
+                  name="company_priority"
+                  value={formData.company_priority}
+                  onChange={handleChange}
+                  min="1"
+                  max="999"
+                  className={errors.company_priority ? 'error' : ''}
+                  placeholder="1"
+                />
+                <span className="input-suffix">priority order</span>
+              </div>
+              
+              {errors.company_priority && (
+                <span className="error-message">
+                  <span className="error-icon">⚠️</span>
+                  {errors.company_priority}
+                </span>
+              )}
+
+              <div className="priority-recommendation">
+                <span className="recommendation-icon" style={{ color: priorityRecommendation.color }}>
+                  {priorityRecommendation.icon}
+                </span>
+                <span className="recommendation-text" style={{ color: priorityRecommendation.color }}>
+                  {priorityRecommendation.text}
+                </span>
+              </div>
+
+              <div className="priority-explanation">
+                <div className="explanation-header">
+                  <span className="explanation-icon">💡</span>
+                  <span className="explanation-title">How Company Priority Works</span>
+                </div>
+                <div className="explanation-content">
+                  <div className="explanation-item">
+                    <span className="explanation-number">1</span>
+                    <span className="explanation-text">Lower numbers = Higher priority (1 is most important)</span>
                   </div>
-                  <div className="priority-check">
-                    {formData.priority === priority.value && <span>✅</span>}
+                  <div className="explanation-item">
+                    <span className="explanation-number">2</span>
+                    <span className="explanation-text">Projects are automatically ordered by this number</span>
+                  </div>
+                  <div className="explanation-item">
+                    <span className="explanation-number">3</span>
+                    <span className="explanation-text">You can easily reorder projects later in the dashboard</span>
                   </div>
                 </div>
-              ))}
+              </div>
             </div>
           </div>
 
