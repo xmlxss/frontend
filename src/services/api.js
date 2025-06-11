@@ -37,6 +37,8 @@ export const projectAPI = {
   delete: (id) => api.delete(`/projects/${id}`),
   syncProgress: (id) => api.post(`/projects/${id}/sync-progress`),
   syncAllProgress: () => api.post('/projects/sync-all-progress'),
+  // Add the new priority update endpoint
+  updatePriorities: (priorityUpdates) => api.put('/projects/priorities', { updates: priorityUpdates }),
 };
 
 export const jiraAPI = {

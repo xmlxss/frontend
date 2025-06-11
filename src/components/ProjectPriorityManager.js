@@ -15,7 +15,15 @@ function ProjectPriorityManager({ projects, onUpdate, onClose }) {
   }, [projects]);
 
   const handleDragEnd = (result) => {
-    if (!result.destination) return;
+    // Check if dropped outside the list
+    if (!result.destination) {
+      return;
+    }
+
+    // Check if the position actually changed
+    if (result.destination.index === result.source.index) {
+      return;
+    }
 
     const items = Array.from(sortedProjects);
     const [reorderedItem] = items.splice(result.source.index, 1);
@@ -108,7 +116,7 @@ function ProjectPriorityManager({ projects, onUpdate, onClose }) {
           </div>
 
           <DragDropContext onDragEnd={handleDragEnd}>
-            <Droppable droppableId="projects">
+            <Droppable droppableId="priority-projects-list">
               {(provided, snapshot) => (
                 <div
                   {...provided.droppableProps}
@@ -116,7 +124,11 @@ function ProjectPriorityManager({ projects, onUpdate, onClose }) {
                   className={`priority-list ${snapshot.isDraggingOver ? 'dragging-over' : ''}`}
                 >
                   {sortedProjects.map((project, index) => (
-                    <Draggable key={project.id} draggableId={project.id.toString()} index={index}>
+                    <Draggable 
+                      key={`project-${project.id}`} 
+                      draggableId={`project-${project.id}`} 
+                      index={index}
+                    >
                       {(provided, snapshot) => (
                         <div
                           ref={provided.innerRef}
@@ -188,7 +200,6 @@ function ProjectPriorityManager({ projects, onUpdate, onClose }) {
               disabled={!hasChanges || loading}
             >
               {!loading && <span>✅</span>}
-              }
               {loading ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
