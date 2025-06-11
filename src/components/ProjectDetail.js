@@ -271,6 +271,7 @@ function ProjectDetail() {
                 disabled={syncing}
               >
                 {!syncing && <span>🔄</span>}
+                }
                 {syncing ? 'Syncing...' : 'Sync Progress'}
               </button>
             </div>
