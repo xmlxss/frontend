@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { confluenceAPI, debounce } from '../services/api';
 import { format } from 'date-fns';
+import '../styles/ConfluencePicker.css';
 
 function ConfluencePicker({ selectedPages, onUpdate }) {
   const [searchQuery, setSearchQuery] = useState('');

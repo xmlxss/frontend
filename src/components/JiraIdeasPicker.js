@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { jiraAPI, debounce } from '../services/api';
 import { format } from 'date-fns';
-
+import '../styles/JiraIdeasPicker.css';
 function JiraIdeasPicker({ selectedIdeas, onUpdate }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [ideas, setIdeas] = useState([]);

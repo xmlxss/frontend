@@ -317,10 +317,10 @@ function ProjectList() {
             </div>
             <div className="stat-content">
               <div className="stat-number">{completedProjects}</div>
-              <div className="stat-label">Completed</div>
+              <div className="stat-label">Near Completion</div>
               <div className="stat-trend">
                 <span className="trend-icon">✅</span>
-                <span className="trend-text">Delivered</span>
+                <span className="trend-text">Delivery</span>
               </div>
             </div>
           </div>

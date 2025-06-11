@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { jiraAPI, debounce } from '../services/api';
 import { format } from 'date-fns';
+import '../styles/JiraEpicsPicker.css';
 
 function JiraEpicsPicker({ selectedEpics, onUpdate }) {
   const [searchQuery, setSearchQuery] = useState('');
