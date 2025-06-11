@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import ProjectList from './components/ProjectList';
 import ProjectForm from './components/ProjectForm';
 import ProjectDetail from './components/ProjectDetail';
+import ProjectsTimeline from './components/ProjectsTimeline';
 import './styles/App.css';
 
 function App() {
@@ -19,6 +20,9 @@ function App() {
                 <Link to="/" className="nav-link">Projects</Link>
               </li>
               <li className="nav-item">
+                <Link to="/timeline" className="nav-link">Timeline</Link>
+              </li>
+              <li className="nav-item">
                 <Link to="/new" className="nav-link">New Project</Link>
               </li>
             </ul>
@@ -28,6 +32,7 @@ function App() {
         <main className="main-content">
           <Routes>
             <Route path="/" element={<ProjectList />} />
+            <Route path="/timeline" element={<ProjectsTimeline />} />
             <Route path="/new" element={<ProjectForm />} />
             <Route path="/projects/:id" element={<ProjectDetail />} />
           </Routes>
