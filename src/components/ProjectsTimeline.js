@@ -161,14 +161,9 @@ function ProjectsTimeline() {
     });
   }, [filteredProjects, showProgress]);
 
-  // Calculate comprehensive dashboard stats
-  const totalProjects = filteredProjects.length;
-  const activeProjects = filteredProjects.filter(p => {
-    const progress = calculateProjectProgress(p);
-    return progress > 0 && progress < 90;
-  }).length;
-  const completedProjects = filteredProjects.filter(p => calculateProjectProgress(p) >= 90).length;
+  // Calculate comprehensive dashboard stats - REMOVED Total and Active
   const urgentProjects = filteredProjects.filter(p => p.company_priority <= 5).length;
+  const completedProjects = filteredProjects.filter(p => calculateProjectProgress(p) >= 90).length;
   const atRiskProjects = filteredProjects.filter(p => {
     const progress = calculateProjectProgress(p);
     const today = new Date();
@@ -176,8 +171,8 @@ function ProjectsTimeline() {
     const daysRemaining = differenceInDays(endDate, today);
     return (daysRemaining < 7 && progress < 75) || daysRemaining < 0;
   }).length;
-  const averageProgress = totalProjects > 0 
-    ? Math.round(filteredProjects.reduce((sum, p) => sum + calculateProjectProgress(p), 0) / totalProjects)
+  const averageProgress = filteredProjects.length > 0 
+    ? Math.round(filteredProjects.reduce((sum, p) => sum + calculateProjectProgress(p), 0) / filteredProjects.length)
     : 0;
 
   // Gantt event handlers
@@ -201,7 +196,7 @@ function ProjectsTimeline() {
 
   return (
     <div className="projects-timeline-page">
-      {/* Hero Section with Comprehensive KPIs */}
+      {/* Hero Section with Focused KPIs */}
       <div className="timeline-hero">
         <div className="hero-content">
           <div className="hero-text">
@@ -222,36 +217,8 @@ function ProjectsTimeline() {
           </div>
         </div>
 
-        {/* Comprehensive KPI Dashboard */}
+        {/* Focused KPI Dashboard - Removed Total and Active */}
         <div className="timeline-stats">
-          <div className="stat-card glass highlight">
-            <div className="stat-icon-container primary">
-              <span className="stat-icon">📈</span>
-            </div>
-            <div className="stat-content">
-              <div className="stat-number">{totalProjects}</div>
-              <div className="stat-label">Total Projects</div>
-              <div className="stat-trend">
-                <span className="trend-icon">📊</span>
-                <span className="trend-text">In timeline view</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="stat-card glass">
-            <div className="stat-icon-container success">
-              <span className="stat-icon">⚡</span>
-            </div>
-            <div className="stat-content">
-              <div className="stat-number">{activeProjects}</div>
-              <div className="stat-label">Active Projects</div>
-              <div className="stat-trend">
-                <span className="trend-icon">🔄</span>
-                <span className="trend-text">In progress</span>
-              </div>
-            </div>
-          </div>
-
           <div className="stat-card glass">
             <div className="stat-icon-container urgent">
               <span className="stat-icon">🚀</span>
@@ -443,7 +410,7 @@ function ProjectsTimeline() {
               tasks={ganttTasks}
               viewMode={viewMode}
               onDoubleClick={handleTaskClick}
-              listCellWidth="250px"
+              listCellWidth="0px"
               columnWidth={
                 viewMode === ViewMode.Month ? 350 : 
                 viewMode === ViewMode.Week ? 300 : 
