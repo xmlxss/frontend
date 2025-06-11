@@ -1,26 +1,116 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import React, { useState, useEffect } from 'react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import {
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { projectAPI } from '../services/api';
 import '../styles/ProjectPriorityManager.css';
+
+// Sortable Item Component
+function SortableProjectItem({ project, index }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: project.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.8 : 1,
+    zIndex: isDragging ? 1000 : 1,
+  };
+
+  const getPriorityIcon = (priority) => {
+    if (priority === 1) return '🥇';
+    if (priority <= 3) return '🔴';
+    if (priority <= 5) return '🟠';
+    if (priority <= 10) return '🟡';
+    return '🟢';
+  };
+
+  const getPriorityClass = (priority) => {
+    if (priority <= 3) return 'priority-very-high';
+    if (priority <= 5) return 'priority-high';
+    if (priority <= 10) return 'priority-medium';
+    if (priority <= 20) return 'priority-low';
+    return 'priority-very-low';
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`priority-item ${isDragging ? 'dragging' : ''} ${getPriorityClass(project.company_priority)}`}
+      {...attributes}
+    >
+      <div className="priority-item-content">
+        <div className="priority-number">
+          <span className="priority-icon">{getPriorityIcon(project.company_priority)}</span>
+          <span className="priority-text">#{project.company_priority}</span>
+        </div>
+        
+        <div className="project-info">
+          <h4 className="project-title">{project.title}</h4>
+          <div className="project-meta">
+            <span className="project-dates">
+              📅 {new Date(project.start_date).toLocaleDateString()} - {new Date(project.end_date).toLocaleDateString()}
+            </span>
+            <span className="project-team">
+              👥 {project.developers?.length || 0}/{project.max_team_members} members
+            </span>
+          </div>
+          <div className="project-debug">
+            <small>ID: {project.id} | Index: {index}</small>
+          </div>
+        </div>
+
+        <div className="drag-handle" {...listeners}>
+          <span>⋮⋮</span>
+          <div className="handle-tooltip">Drag to reorder</div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function ProjectPriorityManager({ projects, onUpdate, onClose }) {
   const [sortedProjects, setSortedProjects] = useState([]);
   const [loading, setLoading] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
-  const [isReady, setIsReady] = useState(false);
-  const [debugInfo, setDebugInfo] = useState('');
-  const mountedRef = useRef(false);
-  const initTimeoutRef = useRef(null);
+  const [debugInfo, setDebugInfo] = useState('Initializing...');
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   useEffect(() => {
-    mountedRef.current = true;
-    console.log('🚀 ProjectPriorityManager mounted');
+    console.log('🚀 ProjectPriorityManager mounted with @dnd-kit');
     console.log('📊 Initial projects:', projects);
-    
-    // Clear any existing timeout
-    if (initTimeoutRef.current) {
-      clearTimeout(initTimeoutRef.current);
-    }
     
     // Enhanced project validation and sorting
     const validProjects = projects.filter(project => {
@@ -54,86 +144,65 @@ function ProjectPriorityManager({ projects, onUpdate, onClose }) {
       });
     
     setSortedProjects(sorted);
-    setDebugInfo(`Processed ${sorted.length} projects`);
-    
-    // Simple initialization with longer delay
-    initTimeoutRef.current = setTimeout(() => {
-      if (mountedRef.current) {
-        console.log('✅ DnD initialization complete');
-        setIsReady(true);
-        setDebugInfo(`Ready! ${sorted.length} projects loaded`);
-      }
-    }, 1000); // Increased delay to 1 second
-
-    return () => {
-      mountedRef.current = false;
-      if (initTimeoutRef.current) {
-        clearTimeout(initTimeoutRef.current);
-      }
-    };
+    setDebugInfo(`Ready! ${sorted.length} projects loaded with @dnd-kit`);
   }, [projects]);
 
-  const handleDragStart = useCallback((start) => {
-    console.log('🎯 Drag started:', {
-      draggableId: start.draggableId,
-      source: start.source,
-      type: start.type
-    });
-    setDebugInfo(`Dragging: ${start.draggableId}`);
-  }, []);
+  const handleDragStart = (event) => {
+    console.log('🎯 Drag started:', event);
+    const draggedProject = sortedProjects.find(p => p.id === event.active.id);
+    setDebugInfo(`Dragging: ${draggedProject?.title || event.active.id}`);
+  };
 
-  const handleDragUpdate = useCallback((update) => {
-    console.log('🔄 Drag update:', {
-      draggableId: update.draggableId,
-      source: update.source,
-      destination: update.destination
-    });
-    if (update.destination) {
-      setDebugInfo(`Moving from ${update.source.index} to ${update.destination.index}`);
+  const handleDragOver = (event) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const activeIndex = sortedProjects.findIndex(p => p.id === active.id);
+      const overIndex = sortedProjects.findIndex(p => p.id === over.id);
+      setDebugInfo(`Moving from position ${activeIndex + 1} to ${overIndex + 1}`);
     }
-  }, []);
+  };
 
-  const handleDragEnd = useCallback((result) => {
-    console.log('🏁 Drag end result:', result);
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
     
-    setDebugInfo('Processing drag result...');
+    console.log('🏁 Drag end:', { active: active.id, over: over?.id });
     
-    // Check if dropped outside the list
-    if (!result.destination) {
+    if (!over) {
       console.log('❌ Dropped outside list');
       setDebugInfo('Dropped outside - no changes');
       return;
     }
 
-    // Check if the position actually changed
-    if (result.destination.index === result.source.index) {
-      console.log('❌ Position unchanged');
+    if (active.id !== over.id) {
+      console.log('✅ Valid drag operation, updating order...');
+      
+      setSortedProjects((items) => {
+        const oldIndex = items.findIndex(p => p.id === active.id);
+        const newIndex = items.findIndex(p => p.id === over.id);
+        
+        const newItems = arrayMove(items, oldIndex, newIndex);
+        
+        // Update company_priority for all projects based on new order
+        const updatedItems = newItems.map((item, index) => ({
+          ...item,
+          company_priority: index + 1
+        }));
+
+        console.log('📊 Updated items order:', updatedItems.map(p => ({
+          id: p.id,
+          title: p.title,
+          company_priority: p.company_priority
+        })));
+
+        setHasChanges(true);
+        setDebugInfo(`Reordered! ${updatedItems.length} projects updated`);
+        
+        return updatedItems;
+      });
+    } else {
       setDebugInfo('Position unchanged');
-      return;
     }
-
-    console.log('✅ Valid drag operation, updating order...');
-
-    const items = Array.from(sortedProjects);
-    const [reorderedItem] = items.splice(result.source.index, 1);
-    items.splice(result.destination.index, 0, reorderedItem);
-
-    // Update company_priority for all projects based on new order
-    const updatedItems = items.map((item, index) => ({
-      ...item,
-      company_priority: index + 1
-    }));
-
-    console.log('📊 Updated items order:', updatedItems.map(p => ({
-      id: p.id,
-      title: p.title,
-      company_priority: p.company_priority
-    })));
-
-    setSortedProjects(updatedItems);
-    setHasChanges(true);
-    setDebugInfo(`Reordered! ${updatedItems.length} projects updated`);
-  }, [sortedProjects]);
+  };
 
   const savePriorityChanges = async () => {
     setLoading(true);
@@ -176,24 +245,7 @@ function ProjectPriorityManager({ projects, onUpdate, onClose }) {
     setDebugInfo('Changes reset');
   };
 
-  const getPriorityIcon = (priority) => {
-    if (priority === 1) return '🥇';
-    if (priority <= 3) return '🔴';
-    if (priority <= 5) return '🟠';
-    if (priority <= 10) return '🟡';
-    return '🟢';
-  };
-
-  const getPriorityClass = (priority) => {
-    if (priority <= 3) return 'priority-very-high';
-    if (priority <= 5) return 'priority-high';
-    if (priority <= 10) return 'priority-medium';
-    if (priority <= 20) return 'priority-low';
-    return 'priority-very-low';
-  };
-
-  // Enhanced loading/error states
-  if (!isReady || !sortedProjects || sortedProjects.length === 0) {
+  if (!sortedProjects || sortedProjects.length === 0) {
     return (
       <div className="priority-manager-overlay">
         <div className="priority-manager glass">
@@ -204,7 +256,7 @@ function ProjectPriorityManager({ projects, onUpdate, onClose }) {
                 Manage Company Priorities
               </h2>
               <p className="header-subtitle">
-                {!isReady ? 'Preparing drag and drop interface...' : 'No projects available to prioritize.'}
+                No projects available to prioritize.
               </p>
             </div>
             <button onClick={onClose} className="close-btn">
@@ -213,41 +265,16 @@ function ProjectPriorityManager({ projects, onUpdate, onClose }) {
           </div>
           
           <div className="priority-manager-content">
-            {!isReady ? (
-              <div className="loading-state">
-                <div className="loading-spinner"></div>
-                <p>Loading projects and initializing drag & drop...</p>
-                <div className="debug-info">
-                  <strong>Debug:</strong> {debugInfo}
-                </div>
-                <div className="debug-details">
-                  <p>Total projects received: {projects?.length || 0}</p>
-                  <p>Valid projects: {sortedProjects?.length || 0}</p>
-                  <p>Ready state: {isReady ? 'Yes' : 'No'}</p>
-                  <p>Mounted: {mountedRef.current ? 'Yes' : 'No'}</p>
-                </div>
-                <div className="retry-section">
-                  <button 
-                    onClick={() => window.location.reload()}
-                    className="btn btn-secondary"
-                  >
-                    <span>🔄</span>
-                    Reload Page
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="empty-state">
-                <div className="empty-icon">📋</div>
-                <h3>No Projects Available</h3>
-                <p>There are no projects to prioritize at the moment.</p>
-              </div>
-            )}
+            <div className="empty-state">
+              <div className="empty-icon">📋</div>
+              <h3>No Projects Available</h3>
+              <p>There are no projects to prioritize at the moment.</p>
+            </div>
           </div>
           
           <div className="priority-manager-footer">
             <div className="footer-info">
-              <span className="debug-status">Status: {debugInfo}</span>
+              <span className="debug-status">Status: No projects found</span>
             </div>
             <div className="footer-actions">
               <button onClick={onClose} className="btn btn-secondary">
@@ -302,115 +329,36 @@ function ProjectPriorityManager({ projects, onUpdate, onClose }) {
               <span>Debug Info: {debugInfo}</span>
             </div>
             <div className="debug-details">
+              <span>Library: @dnd-kit (modern & reliable)</span>
               <span>Projects loaded: {sortedProjects.length}</span>
               <span>Has changes: {hasChanges ? 'Yes' : 'No'}</span>
-              <span>Ready: {isReady ? 'Yes' : 'No'}</span>
-              <span>Mounted: {mountedRef.current ? 'Yes' : 'No'}</span>
+              <span>Status: Ready for drag & drop</span>
             </div>
           </div>
 
-          {/* Simple DnD Context without complex keys */}
-          <DragDropContext 
-            onDragEnd={handleDragEnd}
+          {/* @dnd-kit Implementation */}
+          <DndContext 
+            sensors={sensors}
+            collisionDetection={closestCenter}
             onDragStart={handleDragStart}
-            onDragUpdate={handleDragUpdate}
+            onDragOver={handleDragOver}
+            onDragEnd={handleDragEnd}
           >
-            <Droppable 
-              droppableId="priority-projects-list"
-              type="PRIORITY_PROJECT"
-              isDropDisabled={loading}
+            <SortableContext 
+              items={sortedProjects.map(p => p.id)}
+              strategy={verticalListSortingStrategy}
             >
-              {(provided, snapshot) => {
-                console.log('🎨 Droppable render:', {
-                  isDraggingOver: snapshot.isDraggingOver,
-                  draggingOverWith: snapshot.draggingOverWith,
-                  draggingFromThisWith: snapshot.draggingFromThisWith
-                });
-                
-                return (
-                  <div
-                    {...provided.droppableProps}
-                    ref={provided.innerRef}
-                    className={`priority-list ${snapshot.isDraggingOver ? 'dragging-over' : ''}`}
-                  >
-                    {sortedProjects.map((project, index) => {
-                      // Simple, stable ID
-                      const draggableId = `project-${project.id}`;
-                      
-                      console.log(`🎯 Rendering draggable ${index}:`, {
-                        draggableId,
-                        projectId: project.id,
-                        title: project.title,
-                        index
-                      });
-                      
-                      return (
-                        <Draggable 
-                          key={draggableId}
-                          draggableId={draggableId}
-                          index={index}
-                          isDragDisabled={loading}
-                        >
-                          {(provided, snapshot) => {
-                            console.log(`🎨 Draggable ${draggableId} render:`, {
-                              isDragging: snapshot.isDragging,
-                              isDropAnimating: snapshot.isDropAnimating,
-                              draggingOver: snapshot.draggingOver
-                            });
-                            
-                            return (
-                              <div
-                                ref={provided.innerRef}
-                                {...provided.draggableProps}
-                                {...provided.dragHandleProps}
-                                className={`priority-item ${snapshot.isDragging ? 'dragging' : ''} ${getPriorityClass(project.company_priority)}`}
-                                style={{
-                                  ...provided.draggableProps.style,
-                                  opacity: snapshot.isDragging ? 0.8 : 1,
-                                  transform: snapshot.isDragging 
-                                    ? `${provided.draggableProps.style?.transform} rotate(2deg)` 
-                                    : provided.draggableProps.style?.transform,
-                                }}
-                                data-testid={`priority-item-${project.id}`}
-                              >
-                                <div className="priority-item-content">
-                                  <div className="priority-number">
-                                    <span className="priority-icon">{getPriorityIcon(project.company_priority)}</span>
-                                    <span className="priority-text">#{project.company_priority}</span>
-                                  </div>
-                                  
-                                  <div className="project-info">
-                                    <h4 className="project-title">{project.title}</h4>
-                                    <div className="project-meta">
-                                      <span className="project-dates">
-                                        📅 {new Date(project.start_date).toLocaleDateString()} - {new Date(project.end_date).toLocaleDateString()}
-                                      </span>
-                                      <span className="project-team">
-                                        👥 {project.developers?.length || 0}/{project.max_team_members} members
-                                      </span>
-                                    </div>
-                                    <div className="project-debug">
-                                      <small>ID: {project.id} | DraggableId: {draggableId} | Index: {index}</small>
-                                    </div>
-                                  </div>
-
-                                  <div className="drag-handle">
-                                    <span>⋮⋮</span>
-                                    <div className="handle-tooltip">Drag to reorder</div>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          }}
-                        </Draggable>
-                      );
-                    })}
-                    {provided.placeholder}
-                  </div>
-                );
-              }}
-            </Droppable>
-          </DragDropContext>
+              <div className="priority-list">
+                {sortedProjects.map((project, index) => (
+                  <SortableProjectItem
+                    key={project.id}
+                    project={project}
+                    index={index}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
         </div>
 
         <div className="priority-manager-footer">
@@ -447,7 +395,6 @@ function ProjectPriorityManager({ projects, onUpdate, onClose }) {
               disabled={!hasChanges || loading}
             >
               {!loading && <span>✅</span>}
-              }
               {loading ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
