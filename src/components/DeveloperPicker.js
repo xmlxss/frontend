@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { teamsAPI, debounce } from '../services/api';
+import '../styles/DeveloperPicker.css';
 
 function DeveloperPicker({ selectedDevelopers, onUpdate, maxTeamMembers = null }) {
   const [allDevelopers, setAllDevelopers] = useState([]);
