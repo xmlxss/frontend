@@ -111,7 +111,7 @@ function ProjectList() {
     const holidays = getCommonHolidays(currentYear);
     
     const teamSize = project.developers.length;
-    return calculateProjectCost(project.start_date, project.end_date, teamSize, 100, 4, holidays);
+    return calculateProjectCost(project.start_date, project.end_date, teamSize, 150, 4, holidays);
   };
 
   // Calculate estimated project cost based on max team members using business days
@@ -124,7 +124,7 @@ function ProjectList() {
     const currentYear = new Date().getFullYear();
     const holidays = getCommonHolidays(currentYear);
     
-    return calculateProjectCost(project.start_date, project.end_date, project.max_team_members, 100, 4, holidays);
+    return calculateProjectCost(project.start_date, project.end_date, project.max_team_members, 150, 4, holidays);
   };
 
   const getProgressColor = (progress) => {

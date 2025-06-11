@@ -108,7 +108,7 @@ function ProjectForm() {
       formData.start_date, 
       formData.end_date, 
       formData.max_team_members, 
-      100, 
+      150, 
       4, 
       holidays
     );
@@ -372,7 +372,7 @@ function ProjectForm() {
                 
                 <div className="cost-calculation">
                   <span className="cost-formula">
-                    {formData.max_team_members} members × 4 hours/day × {costEstimation.businessDays} business days × €100/hour
+                    {formData.max_team_members} members × 4 hours/day × {costEstimation.businessDays} business days × €150/hour
                   </span>
                 </div>
                 
@@ -383,7 +383,7 @@ function ProjectForm() {
               </div>
               <div className="cost-note">
                 <span className="note-icon">ℹ️</span>
-                <span>Based on 4 hours per developer per business day at €100/hour (excludes weekends and holidays)</span>
+                <span>Based on 4 hours per developer per business day at €150/hour (excludes weekends and holidays)</span>
               </div>
             </div>
           )}

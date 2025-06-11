@@ -82,7 +82,7 @@ function ProjectDetail() {
       project.start_date, 
       project.end_date, 
       project.max_team_members || 0, 
-      100, 
+      150, 
       4, 
       holidays
     );
@@ -93,7 +93,7 @@ function ProjectDetail() {
       project.start_date, 
       project.end_date, 
       currentTeamSize, 
-      100, 
+      150, 
       4, 
       holidays
     );

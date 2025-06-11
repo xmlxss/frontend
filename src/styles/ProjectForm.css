@@ -239,28 +239,46 @@
 
 /* Cost Estimation Card */
 .cost-estimation-card {
-  background: linear-gradient(135deg, var(--bg-tertiary) 0%, rgba(52, 199, 89, 0.05) 100%);
-  border: 1px solid rgba(52, 199, 89, 0.2);
-  border-radius: var(--radius-lg);
-  padding: var(--spacing-lg);
+  background: linear-gradient(135deg, var(--bg-primary) 0%, rgba(52, 199, 89, 0.02) 100%);
+  border: 2px solid rgba(52, 199, 89, 0.2);
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-xl);
   margin-top: var(--spacing-md);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-lg);
+  position: relative;
+  overflow: hidden;
+}
+
+.cost-estimation-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at 10% 20%, rgba(52, 199, 89, 0.05) 0%, transparent 50%);
+  pointer-events: none;
 }
 
 .cost-header {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  margin-bottom: var(--spacing-md);
+  margin-bottom: var(--spacing-xl);
+  position: relative;
+  z-index: 1;
 }
 
 .cost-icon {
-  font-size: var(--font-size-xl);
-  color: var(--success-color);
+  font-size: var(--font-size-2xl);
+  background: linear-gradient(135deg, #34c759, #30d158);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .cost-header h3 {
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-xl);
   font-weight: 700;
   margin: 0;
   color: var(--text-primary);
@@ -269,15 +287,18 @@
 .cost-breakdown {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-md);
+  gap: var(--spacing-lg);
+  position: relative;
+  z-index: 1;
 }
 
 /* Business Days Info */
 .business-days-info {
   background: var(--bg-primary);
   border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
-  padding: var(--spacing-md);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-sm);
 }
 
 .business-days-summary {
@@ -287,9 +308,10 @@
 }
 
 .business-days-icon {
-  font-size: var(--font-size-xl);
+  font-size: var(--font-size-2xl);
   color: var(--primary-color);
   flex-shrink: 0;
+  margin-top: var(--spacing-xs);
 }
 
 .business-days-content {
@@ -300,18 +322,21 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  margin-bottom: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+  flex-wrap: wrap;
 }
 
 .business-days-main strong {
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-xl);
   color: var(--text-primary);
+  font-weight: 700;
 }
 
 .duration-text {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-md);
   color: var(--text-secondary);
   font-style: italic;
+  font-weight: 500;
 }
 
 .business-days-breakdown {
@@ -326,55 +351,74 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-xs);
+  background: var(--bg-tertiary);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  font-weight: 500;
 }
 
 .cost-calculation {
-  background: var(--bg-primary);
-  padding: var(--spacing-sm) var(--spacing-md);
-  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-lg);
   border: 1px solid var(--glass-border);
+  text-align: center;
 }
 
 .cost-formula {
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-  font-size: var(--font-size-sm);
-  color: var(--text-secondary);
+  font-size: var(--font-size-md);
+  color: var(--text-primary);
+  font-weight: 600;
+  line-height: var(--line-height-relaxed);
 }
 
 .cost-total {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--spacing-xs);
-  padding: var(--spacing-md);
-  background: rgba(52, 199, 89, 0.1);
-  border-radius: var(--radius-md);
-  border: 1px solid rgba(52, 199, 89, 0.2);
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xl);
+  background: linear-gradient(135deg, rgba(52, 199, 89, 0.1) 0%, rgba(52, 199, 89, 0.05) 100%);
+  border-radius: var(--radius-lg);
+  border: 2px solid rgba(52, 199, 89, 0.3);
+  text-align: center;
 }
 
 .cost-amount {
-  font-size: var(--font-size-2xl);
+  font-size: var(--font-size-3xl);
   font-weight: 700;
   color: #34c759;
+  text-shadow: 0 1px 2px rgba(52, 199, 89, 0.2);
 }
 
 .cost-label {
-  font-size: var(--font-size-sm);
-  color: var(--text-secondary);
-  font-weight: 500;
+  font-size: var(--font-size-md);
+  color: var(--text-primary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .cost-note {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--spacing-sm);
-  font-size: var(--font-size-xs);
-  color: var(--text-tertiary);
-  margin-top: var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--glass-border);
+  line-height: var(--line-height-relaxed);
 }
 
 .note-icon {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-md);
+  color: var(--primary-color);
+  flex-shrink: 0;
+  margin-top: 2px;
 }
 
 .form-row {
@@ -406,6 +450,7 @@
   }
   
   .preset-buttons {
+    display: grid;
     grid-template-columns: repeat(2, 1fr);
   }
   
@@ -416,10 +461,72 @@
   .business-days-summary {
     flex-direction: column;
     gap: var(--spacing-sm);
+    text-align: center;
+  }
+  
+  .business-days-main {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
   }
   
   .business-days-breakdown {
     flex-direction: column;
     gap: var(--spacing-sm);
+  }
+  
+  .cost-formula {
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-relaxed);
+  }
+  
+  .cost-amount {
+    font-size: var(--font-size-2xl);
+  }
+}
+
+@media (max-width: 480px) {
+  .cost-estimation-card {
+    padding: var(--spacing-lg);
+  }
+  
+  .business-days-icon {
+    font-size: var(--font-size-xl);
+  }
+  
+  .business-days-main strong {
+    font-size: var(--font-size-lg);
+  }
+  
+  .cost-header h3 {
+    font-size: var(--font-size-lg);
+  }
+  
+  .preset-buttons {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .cost-estimation-card {
+    border-width: 3px;
+  }
+  
+  .priority-option {
+    border-width: 3px;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .priority-option,
+  .preset-btn {
+    transition: none;
+  }
+  
+  .priority-option:hover,
+  .preset-btn:hover {
+    transform: none;
   }
 }

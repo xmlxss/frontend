@@ -68,7 +68,7 @@ export const getCommonHolidays = (year) => {
 /**
  * Calculate project cost based on business days
  */
-export const calculateProjectCost = (startDate, endDate, teamSize, hourlyRate = 100, hoursPerDay = 4, excludeHolidays = []) => {
+export const calculateProjectCost = (startDate, endDate, teamSize, hourlyRate = 150, hoursPerDay = 4, excludeHolidays = []) => {
   if (!startDate || !endDate || !teamSize) {
     return 0;
   }
