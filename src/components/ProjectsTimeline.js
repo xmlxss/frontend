@@ -153,23 +153,6 @@ function ProjectsTimeline() {
   const completedProjects = filteredProjects.filter(p => calculateProjectProgress(p) >= 90).length;
   const urgentProjects = filteredProjects.filter(p => p.company_priority <= 5).length;
 
-  const getDaysRemaining = (project) => {
-    const today = new Date();
-    const endDate = new Date(project.end_date);
-    const days = differenceInDays(endDate, today);
-    
-    if (days < 0) return `${Math.abs(days)} days overdue`;
-    if (days === 0) return 'Due today';
-    if (days === 1) return '1 day left';
-    return `${days} days left`;
-  };
-
-  const getProjectDuration = (project) => {
-    const startDate = new Date(project.start_date);
-    const endDate = new Date(project.end_date);
-    return differenceInDays(endDate, startDate) + 1;
-  };
-
   // Gantt event handlers
   const handleTaskClick = (task) => {
     if (task.project) {
@@ -210,16 +193,16 @@ function ProjectsTimeline() {
 
   return (
     <div className="projects-timeline-page">
-      {/* Hero Section */}
+      {/* Hero Section with Key Stats */}
       <div className="timeline-hero">
         <div className="hero-content">
           <div className="hero-text">
             <h1 className="timeline-title">
-              <span className="title-icon">📅</span>
-              Projects Timeline
+              <span className="title-icon">📊</span>
+              Projects Timeline Dashboard
             </h1>
             <p className="timeline-subtitle">
-              Interactive Gantt chart view of all your projects with real-time progress tracking
+              Interactive Gantt chart with real-time progress tracking and priority visualization
             </p>
           </div>
           
@@ -231,7 +214,7 @@ function ProjectsTimeline() {
           </div>
         </div>
 
-        {/* Timeline Stats */}
+        {/* Key Performance Indicators */}
         <div className="timeline-stats">
           <div className="stat-card glass highlight">
             <div className="stat-icon-container primary">
@@ -270,7 +253,7 @@ function ProjectsTimeline() {
               <div className="stat-label">High Priority</div>
               <div className="stat-trend">
                 <span className="trend-icon">⚡</span>
-                <span className="trend-text">Top priorities</span>
+                <span className="trend-text">Top 5 priorities</span>
               </div>
             </div>
           </div>
@@ -281,24 +264,24 @@ function ProjectsTimeline() {
             </div>
             <div className="stat-content">
               <div className="stat-number">{completedProjects}</div>
-              <div className="stat-label">Completed</div>
+              <div className="stat-label">Near Completion</div>
               <div className="stat-trend">
                 <span className="trend-icon">✅</span>
-                <span className="trend-text">Delivered</span>
+                <span className="trend-text">90%+ progress</span>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Controls Bar */}
+      {/* Gantt Chart Controls */}
       <div className="timeline-controls-bar glass">
         <div className="controls-left">
           <div className="view-controls">
             <button 
               className={`view-btn ${viewMode === ViewMode.Day ? 'active' : ''}`}
               onClick={() => setViewMode(ViewMode.Day)}
-              title="Day View"
+              title="Day View - Detailed daily breakdown"
             >
               <span>📅</span>
               Day
@@ -306,7 +289,7 @@ function ProjectsTimeline() {
             <button 
               className={`view-btn ${viewMode === ViewMode.Week ? 'active' : ''}`}
               onClick={() => setViewMode(ViewMode.Week)}
-              title="Week View"
+              title="Week View - Weekly overview"
             >
               <span>📆</span>
               Week
@@ -314,7 +297,7 @@ function ProjectsTimeline() {
             <button 
               className={`view-btn ${viewMode === ViewMode.Month ? 'active' : ''}`}
               onClick={() => setViewMode(ViewMode.Month)}
-              title="Month View"
+              title="Month View - Monthly planning"
             >
               <span>📊</span>
               Month
@@ -322,7 +305,7 @@ function ProjectsTimeline() {
             <button 
               className={`view-btn ${viewMode === ViewMode.Year ? 'active' : ''}`}
               onClick={() => setViewMode(ViewMode.Year)}
-              title="Year View"
+              title="Year View - Annual overview"
             >
               <span>📈</span>
               Year
@@ -336,7 +319,7 @@ function ProjectsTimeline() {
                 checked={isChecked}
                 onChange={(e) => setIsChecked(e.target.checked)}
               />
-              <span className="checkbox-text">Show Progress</span>
+              <span className="checkbox-text">Show Progress Bars</span>
             </label>
           </div>
         </div>
@@ -349,9 +332,9 @@ function ProjectsTimeline() {
               className="filter-select"
             >
               <option value="all">All Projects</option>
-              <option value="active">Active</option>
-              <option value="completed">Completed</option>
-              <option value="urgent">High Priority</option>
+              <option value="active">Active Projects</option>
+              <option value="completed">Near Completion</option>
+              <option value="urgent">High Priority (Top 5)</option>
             </select>
 
             <select 
@@ -367,120 +350,12 @@ function ProjectsTimeline() {
         </div>
       </div>
 
-      {/* Project Details Panel */}
-      {filteredProjects.length > 0 && (
-        <div className="projects-details-panel glass">
-          <div className="panel-header">
-            <h3>
-              <span className="panel-icon">📋</span>
-              Project Details
-            </h3>
-            <span className="project-count">{filteredProjects.length} projects</span>
-          </div>
-          
-          <div className="projects-grid">
-            {filteredProjects.map((project) => {
-              const progress = calculateProjectProgress(project);
-              const status = getProjectStatus(project);
-              const duration = getProjectDuration(project);
-
-              return (
-                <div key={project.id} className="project-detail-card">
-                  <div className="card-header">
-                    <div className="project-title-section">
-                      <span className="priority-icon">{getPriorityIcon(project.company_priority)}</span>
-                      <Link to={`/projects/${project.id}`} className="project-title">
-                        {project.title}
-                      </Link>
-                    </div>
-                    <div className="project-badges">
-                      <span className="priority-badge" style={{ backgroundColor: `${getPriorityColor(project.company_priority)}20`, color: getPriorityColor(project.company_priority) }}>
-                        #{project.company_priority}
-                      </span>
-                      <span 
-                        className="status-badge"
-                        style={{ 
-                          backgroundColor: `${status.color}20`,
-                          color: status.color,
-                          borderColor: status.color
-                        }}
-                      >
-                        <span className="status-icon">{status.icon}</span>
-                        {status.label}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="project-meta-grid">
-                    <div className="meta-item">
-                      <span className="meta-icon">📅</span>
-                      <div className="meta-content">
-                        <span className="meta-label">Duration</span>
-                        <span className="meta-value">{duration} days</span>
-                      </div>
-                    </div>
-                    <div className="meta-item">
-                      <span className="meta-icon">👥</span>
-                      <div className="meta-content">
-                        <span className="meta-label">Team</span>
-                        <span className="meta-value">{project.developers?.length || 0} members</span>
-                      </div>
-                    </div>
-                    <div className="meta-item">
-                      <span className="meta-icon">📊</span>
-                      <div className="meta-content">
-                        <span className="meta-label">Progress</span>
-                        <span className="meta-value">{progress}%</span>
-                      </div>
-                    </div>
-                    <div className="meta-item">
-                      <span className="meta-icon">⏰</span>
-                      <div className="meta-content">
-                        <span className="meta-label">Remaining</span>
-                        <span className="meta-value">{getDaysRemaining(project)}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="project-dates">
-                    <div className="date-item">
-                      <span className="date-label">Start:</span>
-                      <span className="date-value">{format(new Date(project.start_date), 'MMM d, yyyy')}</span>
-                    </div>
-                    <div className="date-item">
-                      <span className="date-label">End:</span>
-                      <span className="date-value">{format(new Date(project.end_date), 'MMM d, yyyy')}</span>
-                    </div>
-                  </div>
-
-                  <div className="progress-section">
-                    <div className="progress-header">
-                      <span className="progress-label">Progress</span>
-                      <span className="progress-value">{progress}%</span>
-                    </div>
-                    <div className="progress-bar">
-                      <div 
-                        className="progress-fill" 
-                        style={{ 
-                          width: `${progress}%`,
-                          backgroundColor: status.color
-                        }}
-                      ></div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Gantt Chart Container */}
+      {/* Main Gantt Chart - The Star of the Show */}
       {filteredProjects.length === 0 ? (
         <div className="empty-state glass">
           <div className="empty-state-content">
             <div className="empty-state-icon">
-              <span>📅</span>
+              <span>📊</span>
             </div>
             <h3>No projects match your filters</h3>
             <p>Try adjusting your filters to see more projects in the timeline</p>
@@ -499,12 +374,25 @@ function ProjectsTimeline() {
       ) : (
         <div className="gantt-container glass">
           <div className="gantt-header">
-            <h3>
+            <h2>
               <span className="gantt-icon">📊</span>
-              Interactive Gantt Chart
-            </h3>
+              Interactive Project Gantt Chart
+            </h2>
             <div className="gantt-info">
-              <span className="info-text">Click on any project bar to view details</span>
+              <div className="info-badges">
+                <span className="info-badge">
+                  <span className="badge-icon">🖱️</span>
+                  Double-click to view project
+                </span>
+                <span className="info-badge">
+                  <span className="badge-icon">📅</span>
+                  Today line shows current date
+                </span>
+                <span className="info-badge">
+                  <span className="badge-icon">📊</span>
+                  Progress bars show completion
+                </span>
+              </div>
             </div>
           </div>
           
@@ -517,9 +405,14 @@ function ProjectsTimeline() {
               onProgressChange={handleProgressChange}
               onDoubleClick={handleTaskClick}
               onExpanderClick={handleExpanderClick}
-              listCellWidth={isChecked ? "155px" : ""}
-              columnWidth={viewMode === ViewMode.Month ? 300 : viewMode === ViewMode.Week ? 250 : 65}
-              ganttHeight={Math.max(400, ganttTasks.length * 50 + 100)}
+              listCellWidth={isChecked ? "200px" : ""}
+              columnWidth={
+                viewMode === ViewMode.Month ? 350 : 
+                viewMode === ViewMode.Week ? 300 : 
+                viewMode === ViewMode.Year ? 400 : 
+                80
+              }
+              ganttHeight={Math.max(500, ganttTasks.length * 60 + 150)}
               barBackgroundColor="#007aff"
               barBackgroundSelectedColor="#5ac8fa"
               barProgressColor="#34c759"
@@ -534,7 +427,7 @@ function ProjectsTimeline() {
               fontFamily="var(--font-family-sans)"
               arrowColor="#8e8e93"
               arrowIndent={20}
-              todayColor="rgba(255, 59, 48, 0.3)"
+              todayColor="rgba(255, 59, 48, 0.4)"
               TooltipContent={({ task, fontSize, fontFamily }) => (
                 <div className="gantt-tooltip">
                   <div className="tooltip-header">
@@ -568,11 +461,15 @@ function ProjectsTimeline() {
                           <span className="tooltip-label">Team:</span>
                           <span className="tooltip-value">{task.project.developers?.length || 0} members</span>
                         </div>
+                        <div className="tooltip-row">
+                          <span className="tooltip-label">Duration:</span>
+                          <span className="tooltip-value">{differenceInDays(task.end, task.start) + 1} days</span>
+                        </div>
                       </>
                     )}
                   </div>
                   <div className="tooltip-footer">
-                    <span className="tooltip-hint">Double-click to view project details</span>
+                    <span className="tooltip-hint">💡 Double-click to view full project details</span>
                   </div>
                 </div>
               )}
@@ -581,83 +478,92 @@ function ProjectsTimeline() {
         </div>
       )}
 
-      {/* Timeline Legend */}
+      {/* Comprehensive Legend */}
       <div className="timeline-legend glass">
         <div className="legend-section">
-          <h4>Priority Levels</h4>
+          <h4>🎯 Priority Levels</h4>
           <div className="legend-items">
             <div className="legend-item">
               <span>🥇</span>
-              <span className="legend-label">#1 - Critical</span>
+              <span className="legend-label">#1 - Critical Priority</span>
               <span className="legend-color" style={{ backgroundColor: '#ff3b30' }}></span>
             </div>
             <div className="legend-item">
               <span>🔴</span>
-              <span className="legend-label">#2-3 - Urgent</span>
+              <span className="legend-label">#2-3 - Urgent Priority</span>
               <span className="legend-color" style={{ backgroundColor: '#ff3b30' }}></span>
             </div>
             <div className="legend-item">
               <span>🟠</span>
-              <span className="legend-label">#4-5 - High</span>
+              <span className="legend-label">#4-5 - High Priority</span>
               <span className="legend-color" style={{ backgroundColor: '#ff9500' }}></span>
             </div>
             <div className="legend-item">
               <span>🟡</span>
-              <span className="legend-label">#6-10 - Normal</span>
+              <span className="legend-label">#6-10 - Normal Priority</span>
               <span className="legend-color" style={{ backgroundColor: '#007aff' }}></span>
             </div>
             <div className="legend-item">
               <span>🟢</span>
-              <span className="legend-label">#11+ - Low</span>
+              <span className="legend-label">#11+ - Low Priority</span>
               <span className="legend-color" style={{ backgroundColor: '#34c759' }}></span>
             </div>
           </div>
         </div>
         
         <div className="legend-section">
-          <h4>Project Status</h4>
+          <h4>📊 Progress Status</h4>
           <div className="legend-items">
             <div className="legend-item">
               <span className="legend-color" style={{ backgroundColor: '#00d4aa' }}></span>
               <span className="legend-label">Near Completion (90%+)</span>
+              <span>🎯</span>
             </div>
             <div className="legend-item">
               <span className="legend-color" style={{ backgroundColor: '#34c759' }}></span>
               <span className="legend-label">On Track (75%+)</span>
+              <span>✅</span>
             </div>
             <div className="legend-item">
               <span className="legend-color" style={{ backgroundColor: '#ff9500' }}></span>
               <span className="legend-label">At Risk</span>
+              <span>⚠️</span>
             </div>
             <div className="legend-item">
               <span className="legend-color" style={{ backgroundColor: '#ff3b30' }}></span>
               <span className="legend-label">Overdue</span>
+              <span>🚨</span>
             </div>
             <div className="legend-item">
               <span className="legend-color" style={{ backgroundColor: '#007aff' }}></span>
               <span className="legend-label">In Progress</span>
+              <span>⏳</span>
             </div>
           </div>
         </div>
 
         <div className="legend-section">
-          <h4>Gantt Chart Features</h4>
+          <h4>🎮 Interactive Features</h4>
           <div className="legend-items">
             <div className="legend-item">
+              <span>🖱️</span>
+              <span className="legend-label">Double-click any bar to view project details</span>
+            </div>
+            <div className="legend-item">
               <span>📊</span>
-              <span className="legend-label">Progress bars show completion</span>
+              <span className="legend-label">Progress bars show real completion status</span>
             </div>
             <div className="legend-item">
               <span>📅</span>
-              <span className="legend-label">Today line shows current date</span>
-            </div>
-            <div className="legend-item">
-              <span>🖱️</span>
-              <span className="legend-label">Double-click to view project</span>
+              <span className="legend-label">Red today line shows current date</span>
             </div>
             <div className="legend-item">
               <span>🔍</span>
-              <span className="legend-label">Hover for detailed tooltip</span>
+              <span className="legend-label">Hover over bars for detailed tooltips</span>
+            </div>
+            <div className="legend-item">
+              <span>📈</span>
+              <span className="legend-label">Switch views: Day/Week/Month/Year</span>
             </div>
           </div>
         </div>
