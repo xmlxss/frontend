@@ -139,6 +139,15 @@
   margin: var(--spacing-xs) 0;
 }
 
+/* Retry Section */
+.retry-section {
+  margin-top: var(--spacing-lg);
+  padding: var(--spacing-md);
+  background: rgba(255, 149, 0, 0.1);
+  border: 1px solid rgba(255, 149, 0, 0.2);
+  border-radius: var(--radius-md);
+}
+
 /* Debug Panel */
 .debug-panel {
   background: linear-gradient(135deg, var(--bg-tertiary) 0%, rgba(0, 122, 255, 0.05) 100%);

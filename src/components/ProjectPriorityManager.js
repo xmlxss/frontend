@@ -10,11 +10,17 @@ function ProjectPriorityManager({ projects, onUpdate, onClose }) {
   const [isReady, setIsReady] = useState(false);
   const [debugInfo, setDebugInfo] = useState('');
   const mountedRef = useRef(false);
+  const initTimeoutRef = useRef(null);
 
   useEffect(() => {
     mountedRef.current = true;
     console.log('🚀 ProjectPriorityManager mounted');
     console.log('📊 Initial projects:', projects);
+    
+    // Clear any existing timeout
+    if (initTimeoutRef.current) {
+      clearTimeout(initTimeoutRef.current);
+    }
     
     // Enhanced project validation and sorting
     const validProjects = projects.filter(project => {
@@ -50,20 +56,61 @@ function ProjectPriorityManager({ projects, onUpdate, onClose }) {
     setSortedProjects(sorted);
     setDebugInfo(`Processed ${sorted.length} projects`);
     
-    // Longer delay to ensure react-beautiful-dnd is fully ready
-    const timer = setTimeout(() => {
-      if (mountedRef.current) {
-        console.log('✅ Setting isReady to true');
-        setIsReady(true);
-        setDebugInfo(`Ready! ${sorted.length} projects loaded`);
-      }
-    }, 300); // Increased delay
+    // Multiple initialization attempts with increasing delays
+    const initializeDragDrop = () => {
+      console.log('🔄 Attempting to initialize drag & drop...');
+      
+      // First attempt - immediate
+      setTimeout(() => {
+        if (mountedRef.current) {
+          console.log('✅ First initialization attempt');
+          setIsReady(true);
+          setDebugInfo(`Ready! ${sorted.length} projects loaded (attempt 1)`);
+        }
+      }, 100);
+      
+      // Second attempt - longer delay
+      initTimeoutRef.current = setTimeout(() => {
+        if (mountedRef.current && !isReady) {
+          console.log('✅ Second initialization attempt');
+          setIsReady(true);
+          setDebugInfo(`Ready! ${sorted.length} projects loaded (attempt 2)`);
+        }
+      }, 500);
+      
+      // Third attempt - even longer delay
+      setTimeout(() => {
+        if (mountedRef.current && !isReady) {
+          console.log('✅ Third initialization attempt');
+          setIsReady(true);
+          setDebugInfo(`Ready! ${sorted.length} projects loaded (attempt 3)`);
+        }
+      }, 1000);
+    };
+
+    // Start initialization process
+    initializeDragDrop();
 
     return () => {
       mountedRef.current = false;
-      clearTimeout(timer);
+      if (initTimeoutRef.current) {
+        clearTimeout(initTimeoutRef.current);
+      }
     };
   }, [projects]);
+
+  // Force re-render when isReady changes
+  useEffect(() => {
+    if (isReady) {
+      console.log('🎯 Drag & Drop is now ready!');
+      // Force a small re-render to ensure DOM is stable
+      setTimeout(() => {
+        if (mountedRef.current) {
+          setDebugInfo(`Fully initialized with ${sortedProjects.length} projects`);
+        }
+      }, 100);
+    }
+  }, [isReady, sortedProjects.length]);
 
   const handleDragStart = (start) => {
     console.log('🎯 Drag started:', {
@@ -216,6 +263,20 @@ function ProjectPriorityManager({ projects, onUpdate, onClose }) {
                   <p>Total projects received: {projects?.length || 0}</p>
                   <p>Valid projects: {sortedProjects?.length || 0}</p>
                   <p>Ready state: {isReady ? 'Yes' : 'No'}</p>
+                  <p>Mounted: {mountedRef.current ? 'Yes' : 'No'}</p>
+                </div>
+                <div className="retry-section">
+                  <button 
+                    onClick={() => {
+                      console.log('🔄 Manual retry triggered');
+                      setIsReady(true);
+                      setDebugInfo('Manual initialization triggered');
+                    }}
+                    className="btn btn-secondary"
+                  >
+                    <span>🔄</span>
+                    Force Initialize
+                  </button>
                 </div>
               </div>
             ) : (
@@ -287,109 +348,114 @@ function ProjectPriorityManager({ projects, onUpdate, onClose }) {
               <span>Projects loaded: {sortedProjects.length}</span>
               <span>Has changes: {hasChanges ? 'Yes' : 'No'}</span>
               <span>Ready: {isReady ? 'Yes' : 'No'}</span>
+              <span>Mounted: {mountedRef.current ? 'Yes' : 'No'}</span>
             </div>
           </div>
 
-          <DragDropContext 
-            onDragEnd={handleDragEnd}
-            onDragStart={handleDragStart}
-            onDragUpdate={handleDragUpdate}
-          >
-            <Droppable 
-              droppableId="priority-projects-list" 
-              type="PRIORITY_PROJECT"
+          {/* Strict mode wrapper to prevent React.StrictMode issues */}
+          <div key={`dnd-context-${isReady}-${sortedProjects.length}`}>
+            <DragDropContext 
+              onDragEnd={handleDragEnd}
+              onDragStart={handleDragStart}
+              onDragUpdate={handleDragUpdate}
             >
-              {(provided, snapshot) => {
-                console.log('🎨 Droppable render:', {
-                  isDraggingOver: snapshot.isDraggingOver,
-                  draggingOverWith: snapshot.draggingOverWith,
-                  draggingFromThisWith: snapshot.draggingFromThisWith
-                });
-                
-                return (
-                  <div
-                    {...provided.droppableProps}
-                    ref={provided.innerRef}
-                    className={`priority-list ${snapshot.isDraggingOver ? 'dragging-over' : ''}`}
-                  >
-                    {sortedProjects.map((project, index) => {
-                      // Create a stable, unique ID for each draggable
-                      const draggableId = `priority-project-${project.id}`;
-                      
-                      console.log(`🎯 Rendering draggable ${index}:`, {
-                        draggableId,
-                        projectId: project.id,
-                        title: project.title,
-                        index
-                      });
-                      
-                      return (
-                        <Draggable 
-                          key={draggableId}
-                          draggableId={draggableId}
-                          index={index}
-                          isDragDisabled={loading}
-                        >
-                          {(provided, snapshot) => {
-                            console.log(`🎨 Draggable ${draggableId} render:`, {
-                              isDragging: snapshot.isDragging,
-                              isDropAnimating: snapshot.isDropAnimating,
-                              draggingOver: snapshot.draggingOver
-                            });
-                            
-                            return (
-                              <div
-                                ref={provided.innerRef}
-                                {...provided.draggableProps}
-                                {...provided.dragHandleProps}
-                                className={`priority-item ${snapshot.isDragging ? 'dragging' : ''} ${getPriorityClass(project.company_priority)}`}
-                                style={{
-                                  ...provided.draggableProps.style,
-                                  opacity: snapshot.isDragging ? 0.8 : 1,
-                                  transform: snapshot.isDragging 
-                                    ? `${provided.draggableProps.style?.transform} rotate(2deg)` 
-                                    : provided.draggableProps.style?.transform,
-                                }}
-                                data-testid={`priority-item-${project.id}`}
-                              >
-                                <div className="priority-item-content">
-                                  <div className="priority-number">
-                                    <span className="priority-icon">{getPriorityIcon(project.company_priority)}</span>
-                                    <span className="priority-text">#{project.company_priority}</span>
-                                  </div>
-                                  
-                                  <div className="project-info">
-                                    <h4 className="project-title">{project.title}</h4>
-                                    <div className="project-meta">
-                                      <span className="project-dates">
-                                        📅 {new Date(project.start_date).toLocaleDateString()} - {new Date(project.end_date).toLocaleDateString()}
-                                      </span>
-                                      <span className="project-team">
-                                        👥 {project.developers?.length || 0}/{project.max_team_members} members
-                                      </span>
+              <Droppable 
+                droppableId="priority-projects-list" 
+                type="PRIORITY_PROJECT"
+                isDropDisabled={loading}
+              >
+                {(provided, snapshot) => {
+                  console.log('🎨 Droppable render:', {
+                    isDraggingOver: snapshot.isDraggingOver,
+                    draggingOverWith: snapshot.draggingOverWith,
+                    draggingFromThisWith: snapshot.draggingFromThisWith
+                  });
+                  
+                  return (
+                    <div
+                      {...provided.droppableProps}
+                      ref={provided.innerRef}
+                      className={`priority-list ${snapshot.isDraggingOver ? 'dragging-over' : ''}`}
+                    >
+                      {sortedProjects.map((project, index) => {
+                        // Create a stable, unique ID for each draggable
+                        const draggableId = `priority-project-${project.id}`;
+                        
+                        console.log(`🎯 Rendering draggable ${index}:`, {
+                          draggableId,
+                          projectId: project.id,
+                          title: project.title,
+                          index
+                        });
+                        
+                        return (
+                          <Draggable 
+                            key={`${draggableId}-${index}`} // More stable key
+                            draggableId={draggableId}
+                            index={index}
+                            isDragDisabled={loading}
+                          >
+                            {(provided, snapshot) => {
+                              console.log(`🎨 Draggable ${draggableId} render:`, {
+                                isDragging: snapshot.isDragging,
+                                isDropAnimating: snapshot.isDropAnimating,
+                                draggingOver: snapshot.draggingOver
+                              });
+                              
+                              return (
+                                <div
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                  {...provided.dragHandleProps}
+                                  className={`priority-item ${snapshot.isDragging ? 'dragging' : ''} ${getPriorityClass(project.company_priority)}`}
+                                  style={{
+                                    ...provided.draggableProps.style,
+                                    opacity: snapshot.isDragging ? 0.8 : 1,
+                                    transform: snapshot.isDragging 
+                                      ? `${provided.draggableProps.style?.transform} rotate(2deg)` 
+                                      : provided.draggableProps.style?.transform,
+                                  }}
+                                  data-testid={`priority-item-${project.id}`}
+                                >
+                                  <div className="priority-item-content">
+                                    <div className="priority-number">
+                                      <span className="priority-icon">{getPriorityIcon(project.company_priority)}</span>
+                                      <span className="priority-text">#{project.company_priority}</span>
                                     </div>
-                                    <div className="project-debug">
-                                      <small>ID: {project.id} | DraggableId: {draggableId}</small>
+                                    
+                                    <div className="project-info">
+                                      <h4 className="project-title">{project.title}</h4>
+                                      <div className="project-meta">
+                                        <span className="project-dates">
+                                          📅 {new Date(project.start_date).toLocaleDateString()} - {new Date(project.end_date).toLocaleDateString()}
+                                        </span>
+                                        <span className="project-team">
+                                          👥 {project.developers?.length || 0}/{project.max_team_members} members
+                                        </span>
+                                      </div>
+                                      <div className="project-debug">
+                                        <small>ID: {project.id} | DraggableId: {draggableId} | Index: {index}</small>
+                                      </div>
                                     </div>
-                                  </div>
 
-                                  <div className="drag-handle">
-                                    <span>⋮⋮</span>
-                                    <div className="handle-tooltip">Drag to reorder</div>
+                                    <div className="drag-handle">
+                                      <span>⋮⋮</span>
+                                      <div className="handle-tooltip">Drag to reorder</div>
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            );
-                          }}
-                        </Draggable>
-                      );
-                    })}
-                    {provided.placeholder}
-                  </div>
-                );
-              }}
-            </Droppable>
-          </DragDropContext>
+                              );
+                            }}
+                          </Draggable>
+                        );
+                      })}
+                      {provided.placeholder}
+                    </div>
+                  );
+                }}
+              </Droppable>
+            </DragDropContext>
+          </div>
         </div>
 
         <div className="priority-manager-footer">
@@ -426,7 +492,6 @@ function ProjectPriorityManager({ projects, onUpdate, onClose }) {
               disabled={!hasChanges || loading}
             >
               {!loading && <span>✅</span>}
-              }
               {loading ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
