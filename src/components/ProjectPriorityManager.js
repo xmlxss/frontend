@@ -9,29 +9,12 @@ function ProjectPriorityManager({ projects, onUpdate, onClose }) {
   const [hasChanges, setHasChanges] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [debugInfo, setDebugInfo] = useState('');
-  const [forceRender, setForceRender] = useState(0);
   const mountedRef = useRef(false);
   const initTimeoutRef = useRef(null);
-  const dndContextRef = useRef(null);
-
-  // Force a complete re-render of the DnD context
-  const forceRefresh = useCallback(() => {
-    console.log('🔄 Force refreshing DnD context...');
-    setIsReady(false);
-    setForceRender(prev => prev + 1);
-    
-    setTimeout(() => {
-      if (mountedRef.current) {
-        console.log('✅ Force refresh complete');
-        setIsReady(true);
-        setDebugInfo('Force refreshed successfully');
-      }
-    }, 100);
-  }, []);
 
   useEffect(() => {
     mountedRef.current = true;
-    console.log('🚀 ProjectPriorityManager mounted - attempt', forceRender);
+    console.log('🚀 ProjectPriorityManager mounted');
     console.log('📊 Initial projects:', projects);
     
     // Clear any existing timeout
@@ -71,16 +54,16 @@ function ProjectPriorityManager({ projects, onUpdate, onClose }) {
       });
     
     setSortedProjects(sorted);
-    setDebugInfo(`Processed ${sorted.length} projects (render ${forceRender})`);
+    setDebugInfo(`Processed ${sorted.length} projects`);
     
     // Simple initialization with longer delay
     initTimeoutRef.current = setTimeout(() => {
       if (mountedRef.current) {
         console.log('✅ DnD initialization complete');
         setIsReady(true);
-        setDebugInfo(`Ready! ${sorted.length} projects loaded (render ${forceRender})`);
+        setDebugInfo(`Ready! ${sorted.length} projects loaded`);
       }
-    }, 500);
+    }, 1000); // Increased delay to 1 second
 
     return () => {
       mountedRef.current = false;
@@ -88,7 +71,7 @@ function ProjectPriorityManager({ projects, onUpdate, onClose }) {
         clearTimeout(initTimeoutRef.current);
       }
     };
-  }, [projects, forceRender]);
+  }, [projects]);
 
   const handleDragStart = useCallback((start) => {
     console.log('🎯 Drag started:', {
@@ -242,15 +225,14 @@ function ProjectPriorityManager({ projects, onUpdate, onClose }) {
                   <p>Valid projects: {sortedProjects?.length || 0}</p>
                   <p>Ready state: {isReady ? 'Yes' : 'No'}</p>
                   <p>Mounted: {mountedRef.current ? 'Yes' : 'No'}</p>
-                  <p>Render count: {forceRender}</p>
                 </div>
                 <div className="retry-section">
                   <button 
-                    onClick={forceRefresh}
+                    onClick={() => window.location.reload()}
                     className="btn btn-secondary"
                   >
                     <span>🔄</span>
-                    Force Refresh DnD
+                    Reload Page
                   </button>
                 </div>
               </div>
@@ -278,9 +260,6 @@ function ProjectPriorityManager({ projects, onUpdate, onClose }) {
       </div>
     );
   }
-
-  // Create a unique key for the entire DnD context to force complete re-render
-  const dndContextKey = `dnd-context-${forceRender}-${sortedProjects.length}-${isReady}`;
 
   return (
     <div className="priority-manager-overlay">
@@ -326,30 +305,18 @@ function ProjectPriorityManager({ projects, onUpdate, onClose }) {
               <span>Projects loaded: {sortedProjects.length}</span>
               <span>Has changes: {hasChanges ? 'Yes' : 'No'}</span>
               <span>Ready: {isReady ? 'Yes' : 'No'}</span>
-              <span>Render: {forceRender}</span>
               <span>Mounted: {mountedRef.current ? 'Yes' : 'No'}</span>
-            </div>
-            <div className="debug-actions">
-              <button 
-                onClick={forceRefresh}
-                className="btn btn-secondary btn-sm"
-              >
-                <span>🔄</span>
-                Force Refresh
-              </button>
             </div>
           </div>
 
-          {/* DnD Context with unique key for complete re-render */}
+          {/* Simple DnD Context without complex keys */}
           <DragDropContext 
-            key={dndContextKey}
-            ref={dndContextRef}
             onDragEnd={handleDragEnd}
             onDragStart={handleDragStart}
             onDragUpdate={handleDragUpdate}
           >
             <Droppable 
-              droppableId={`priority-projects-list-${forceRender}`}
+              droppableId="priority-projects-list"
               type="PRIORITY_PROJECT"
               isDropDisabled={loading}
             >
@@ -367,15 +334,14 @@ function ProjectPriorityManager({ projects, onUpdate, onClose }) {
                     className={`priority-list ${snapshot.isDraggingOver ? 'dragging-over' : ''}`}
                   >
                     {sortedProjects.map((project, index) => {
-                      // Create a stable, unique ID for each draggable
-                      const draggableId = `priority-project-${project.id}-${forceRender}`;
+                      // Simple, stable ID
+                      const draggableId = `project-${project.id}`;
                       
                       console.log(`🎯 Rendering draggable ${index}:`, {
                         draggableId,
                         projectId: project.id,
                         title: project.title,
-                        index,
-                        forceRender
+                        index
                       });
                       
                       return (
@@ -424,7 +390,7 @@ function ProjectPriorityManager({ projects, onUpdate, onClose }) {
                                       </span>
                                     </div>
                                     <div className="project-debug">
-                                      <small>ID: {project.id} | DraggableId: {draggableId} | Index: {index} | Render: {forceRender}</small>
+                                      <small>ID: {project.id} | DraggableId: {draggableId} | Index: {index}</small>
                                     </div>
                                   </div>
 
@@ -481,7 +447,6 @@ function ProjectPriorityManager({ projects, onUpdate, onClose }) {
               disabled={!hasChanges || loading}
             >
               {!loading && <span>✅</span>}
-              }
               {loading ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
