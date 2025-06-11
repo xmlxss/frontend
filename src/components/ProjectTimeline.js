@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { format, differenceInDays, addDays, isAfter, isBefore } from 'date-fns';
+import '../styles/ProjectTimeline.css';
 
 function ProjectTimeline({ project }) {
   const timelineData = useMemo(() => {
@@ -18,7 +19,7 @@ function ProjectTimeline({ project }) {
       start: startDate,
       end: endDate,
       progress: project.total_progress || 0,
-      color: '#2563eb',
+      color: '#007aff',
       priority: project.priority
     });
     
@@ -50,7 +51,7 @@ function ProjectTimeline({ project }) {
         start: epicStart,
         end: epicEnd,
         progress: epic.progress || 0,
-        color: '#10b981',
+        color: '#34c759',
         url: epic.url,
         status: epic.status,
         priority: epic.priority
@@ -66,7 +67,7 @@ function ProjectTimeline({ project }) {
           type: 'milestone',
           name: `${idea.key}: ${idea.summary}`,
           date: milestoneDate,
-          color: '#f59e0b',
+          color: '#ffcc00',
           url: idea.url,
           status: idea.status,
           priority: idea.priority
@@ -81,7 +82,7 @@ function ProjectTimeline({ project }) {
         type: 'today',
         name: 'Today',
         date: today,
-        color: '#ef4444'
+        color: '#ff3b30'
       });
     }
     
@@ -116,13 +117,15 @@ function ProjectTimeline({ project }) {
 
   const getStatusColor = (status) => {
     const colors = {
-      'Done': '#10b981',
-      'In Progress': '#3b82f6',
-      'To Do': '#6b7280',
-      'Blocked': '#ef4444',
-      'Review': '#8b5cf6'
+      'Done': '#34c759',
+      'In Progress': '#007aff',
+      'To Do': '#8e8e93',
+      'Blocked': '#ff3b30',
+      'Review': '#af52de',
+      'Closed': '#34c759',
+      'Open': '#007aff'
     };
-    return colors[status] || '#6b7280';
+    return colors[status] || '#8e8e93';
   };
 
   const getPriorityIcon = (priority) => {
@@ -142,16 +145,20 @@ function ProjectTimeline({ project }) {
         <h2>Project Timeline</h2>
         <div className="timeline-stats">
           <div className="timeline-stat">
-            <span className="stat-label">Duration</span>
-            <span className="stat-value">{timelineData.totalDays} days</span>
+            <div className="stat-label">Duration</div>
+            <div className="stat-value">{timelineData.totalDays} days</div>
           </div>
           <div className="timeline-stat">
-            <span className="stat-label">Progress</span>
-            <span className="stat-value">{Math.round(project.total_progress || 0)}%</span>
+            <div className="stat-label">Progress</div>
+            <div className="stat-value">{Math.round(project.total_progress || 0)}%</div>
           </div>
           <div className="timeline-stat">
-            <span className="stat-label">Epics</span>
-            <span className="stat-value">{project.jira_epics?.length || 0}</span>
+            <div className="stat-label">Epics</div>
+            <div className="stat-value">{project.jira_epics?.length || 0}</div>
+          </div>
+          <div className="timeline-stat">
+            <div className="stat-label">Ideas</div>
+            <div className="stat-value">{project.jira_ideas?.length || 0}</div>
           </div>
         </div>
       </div>
@@ -159,8 +166,14 @@ function ProjectTimeline({ project }) {
       <div className="timeline-container glass">
         <div className="timeline-header">
           <div className="timeline-dates">
-            <span className="start-date">{format(timelineData.startDate, 'MMM d, yyyy')}</span>
-            <span className="end-date">{format(timelineData.endDate, 'MMM d, yyyy')}</span>
+            <div className="start-date">
+              <span style={{ marginRight: '8px' }}>🚀</span>
+              Start: {format(timelineData.startDate, 'MMM d, yyyy')}
+            </div>
+            <div className="end-date">
+              <span style={{ marginRight: '8px' }}>🏁</span>
+              End: {format(timelineData.endDate, 'MMM d, yyyy')}
+            </div>
           </div>
           <div className="month-labels">
             {monthLabels.map((month, index) => (
@@ -191,7 +204,6 @@ function ProjectTimeline({ project }) {
                         left: `${getPositionForDate(item.date)}%`,
                         backgroundColor: item.color
                       }}
-                      title={item.name}
                     >
                       <div className="milestone-tooltip">
                         <div className="tooltip-header">
@@ -308,28 +320,28 @@ function ProjectTimeline({ project }) {
         
         <div className="timeline-legend">
           <div className="legend-section">
-            <h4>Legend</h4>
+            <h4>Timeline Elements</h4>
             <div className="legend-items">
               <div className="legend-item">
-                <span className="legend-color" style={{ backgroundColor: '#2563eb' }}></span>
+                <span className="legend-color" style={{ backgroundColor: '#007aff' }}></span>
                 <span className="legend-label">Project Duration</span>
               </div>
               <div className="legend-item">
-                <span className="legend-color" style={{ backgroundColor: '#10b981' }}></span>
+                <span className="legend-color" style={{ backgroundColor: '#34c759' }}></span>
                 <span className="legend-label">Epics</span>
               </div>
               <div className="legend-item">
-                <span className="legend-color" style={{ backgroundColor: '#f59e0b' }}></span>
+                <span className="legend-color" style={{ backgroundColor: '#ffcc00' }}></span>
                 <span className="legend-label">Milestones</span>
               </div>
               <div className="legend-item">
-                <span className="legend-color" style={{ backgroundColor: '#ef4444' }}></span>
+                <span className="legend-color" style={{ backgroundColor: '#ff3b30' }}></span>
                 <span className="legend-label">Current Date</span>
               </div>
             </div>
           </div>
           <div className="legend-section">
-            <h4>Priority</h4>
+            <h4>Priority Levels</h4>
             <div className="legend-items">
               <div className="legend-item">
                 <span>🔴</span>
@@ -346,6 +358,31 @@ function ProjectTimeline({ project }) {
               <div className="legend-item">
                 <span>🟢</span>
                 <span className="legend-label">Low</span>
+              </div>
+              <div className="legend-item">
+                <span>🔵</span>
+                <span className="legend-label">Very Low</span>
+              </div>
+            </div>
+          </div>
+          <div className="legend-section">
+            <h4>Status Colors</h4>
+            <div className="legend-items">
+              <div className="legend-item">
+                <span className="legend-color" style={{ backgroundColor: '#34c759' }}></span>
+                <span className="legend-label">Done/Completed</span>
+              </div>
+              <div className="legend-item">
+                <span className="legend-color" style={{ backgroundColor: '#007aff' }}></span>
+                <span className="legend-label">In Progress</span>
+              </div>
+              <div className="legend-item">
+                <span className="legend-color" style={{ backgroundColor: '#8e8e93' }}></span>
+                <span className="legend-label">To Do</span>
+              </div>
+              <div className="legend-item">
+                <span className="legend-color" style={{ backgroundColor: '#ff3b30' }}></span>
+                <span className="legend-label">Blocked</span>
               </div>
             </div>
           </div>
