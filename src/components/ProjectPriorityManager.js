@@ -7,23 +7,39 @@ function ProjectPriorityManager({ projects, onUpdate, onClose }) {
   const [sortedProjects, setSortedProjects] = useState([]);
   const [loading, setLoading] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
     // Sort projects by company_priority and ensure they have valid IDs
     const sorted = [...projects]
-      .filter(project => project && project.id) // Filter out invalid projects
-      .sort((a, b) => (a.company_priority || 999) - (b.company_priority || 999));
+      .filter(project => project && project.id && typeof project.id !== 'undefined') // More strict filtering
+      .sort((a, b) => (a.company_priority || 999) - (b.company_priority || 999))
+      .map((project, index) => ({
+        ...project,
+        // Ensure company_priority is set correctly
+        company_priority: project.company_priority || (index + 1)
+      }));
+    
     setSortedProjects(sorted);
+    
+    // Add a small delay to ensure DOM is ready
+    setTimeout(() => {
+      setIsReady(true);
+    }, 100);
   }, [projects]);
 
   const handleDragEnd = (result) => {
+    console.log('Drag end result:', result);
+    
     // Check if dropped outside the list
     if (!result.destination) {
+      console.log('Dropped outside list');
       return;
     }
 
     // Check if the position actually changed
     if (result.destination.index === result.source.index) {
+      console.log('Position unchanged');
       return;
     }
 
@@ -37,18 +53,26 @@ function ProjectPriorityManager({ projects, onUpdate, onClose }) {
       company_priority: index + 1
     }));
 
+    console.log('Updated items:', updatedItems);
     setSortedProjects(updatedItems);
     setHasChanges(true);
+  };
+
+  const handleDragStart = (start) => {
+    console.log('Drag started:', start);
   };
 
   const savePriorityChanges = async () => {
     setLoading(true);
     try {
       // Send batch update to backend
-      await projectAPI.updatePriorities(sortedProjects.map(p => ({
+      const updateData = sortedProjects.map(p => ({
         id: p.id,
         company_priority: p.company_priority
-      })));
+      }));
+      
+      console.log('Sending update data:', updateData);
+      await projectAPI.updatePriorities(updateData);
       
       onUpdate(sortedProjects);
       setHasChanges(false);
@@ -63,7 +87,7 @@ function ProjectPriorityManager({ projects, onUpdate, onClose }) {
 
   const resetChanges = () => {
     const sorted = [...projects]
-      .filter(project => project && project.id)
+      .filter(project => project && project.id && typeof project.id !== 'undefined')
       .sort((a, b) => (a.company_priority || 999) - (b.company_priority || 999));
     setSortedProjects(sorted);
     setHasChanges(false);
@@ -85,8 +109,8 @@ function ProjectPriorityManager({ projects, onUpdate, onClose }) {
     return 'priority-very-low';
   };
 
-  // Don't render if no projects
-  if (!sortedProjects || sortedProjects.length === 0) {
+  // Don't render if no projects or not ready
+  if (!sortedProjects || sortedProjects.length === 0 || !isReady) {
     return (
       <div className="priority-manager-overlay">
         <div className="priority-manager glass">
@@ -96,12 +120,22 @@ function ProjectPriorityManager({ projects, onUpdate, onClose }) {
                 <span className="header-icon">🎯</span>
                 Manage Company Priorities
               </h2>
-              <p className="header-subtitle">No projects available to prioritize.</p>
+              <p className="header-subtitle">
+                {!isReady ? 'Loading projects...' : 'No projects available to prioritize.'}
+              </p>
             </div>
             <button onClick={onClose} className="close-btn">
               <span>✕</span>
             </button>
           </div>
+          {!isReady && (
+            <div className="priority-manager-content">
+              <div className="loading-state">
+                <div className="loading-spinner"></div>
+                <p>Preparing drag and drop interface...</p>
+              </div>
+            </div>
+          )}
           <div className="priority-manager-footer">
             <div className="footer-actions">
               <button onClick={onClose} className="btn btn-secondary">
@@ -149,53 +183,66 @@ function ProjectPriorityManager({ projects, onUpdate, onClose }) {
             </div>
           </div>
 
-          <DragDropContext onDragEnd={handleDragEnd}>
-            <Droppable droppableId="priority-projects-droppable">
+          <DragDropContext 
+            onDragEnd={handleDragEnd}
+            onDragStart={handleDragStart}
+          >
+            <Droppable droppableId="priority-projects-droppable" type="PRIORITY_PROJECT">
               {(provided, snapshot) => (
                 <div
                   {...provided.droppableProps}
                   ref={provided.innerRef}
                   className={`priority-list ${snapshot.isDraggingOver ? 'dragging-over' : ''}`}
                 >
-                  {sortedProjects.map((project, index) => (
-                    <Draggable 
-                      key={`priority-project-${project.id}`} 
-                      draggableId={`priority-project-${project.id}`} 
-                      index={index}
-                    >
-                      {(provided, snapshot) => (
-                        <div
-                          ref={provided.innerRef}
-                          {...provided.draggableProps}
-                          {...provided.dragHandleProps}
-                          className={`priority-item ${snapshot.isDragging ? 'dragging' : ''} ${getPriorityClass(project.company_priority)}`}
-                        >
-                          <div className="priority-item-content">
-                            <div className="priority-number">
-                              <span className="priority-icon">{getPriorityIcon(project.company_priority)}</span>
-                              <span className="priority-text">#{project.company_priority}</span>
-                            </div>
-                            
-                            <div className="project-info">
-                              <h4 className="project-title">{project.title}</h4>
-                              <div className="project-meta">
-                                <span className="project-dates">
-                                  📅 {new Date(project.start_date).toLocaleDateString()} - {new Date(project.end_date).toLocaleDateString()}
-                                </span>
-                                <span className="project-team">
-                                  👥 {project.developers?.length || 0}/{project.max_team_members} members
-                                </span>
+                  {sortedProjects.map((project, index) => {
+                    // Create a unique, stable ID for each draggable
+                    const draggableId = `priority-project-${project.id}`;
+                    
+                    return (
+                      <Draggable 
+                        key={draggableId}
+                        draggableId={draggableId}
+                        index={index}
+                      >
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            {...provided.dragHandleProps}
+                            className={`priority-item ${snapshot.isDragging ? 'dragging' : ''} ${getPriorityClass(project.company_priority)}`}
+                            style={{
+                              ...provided.draggableProps.style,
+                              // Ensure the item is visible during drag
+                              opacity: snapshot.isDragging ? 0.8 : 1,
+                            }}
+                          >
+                            <div className="priority-item-content">
+                              <div className="priority-number">
+                                <span className="priority-icon">{getPriorityIcon(project.company_priority)}</span>
+                                <span className="priority-text">#{project.company_priority}</span>
+                              </div>
+                              
+                              <div className="project-info">
+                                <h4 className="project-title">{project.title}</h4>
+                                <div className="project-meta">
+                                  <span className="project-dates">
+                                    📅 {new Date(project.start_date).toLocaleDateString()} - {new Date(project.end_date).toLocaleDateString()}
+                                  </span>
+                                  <span className="project-team">
+                                    👥 {project.developers?.length || 0}/{project.max_team_members} members
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="drag-handle">
+                                <span>⋮⋮</span>
                               </div>
                             </div>
-
-                            <div className="drag-handle">
-                              <span>⋮⋮</span>
-                            </div>
                           </div>
-                        </div>
-                      )}
-                    </Draggable>
-                  ))}
+                        )}
+                      </Draggable>
+                    );
+                  })}
                   {provided.placeholder}
                 </div>
               )}
@@ -234,7 +281,6 @@ function ProjectPriorityManager({ projects, onUpdate, onClose }) {
               disabled={!hasChanges || loading}
             >
               {!loading && <span>✅</span>}
-              }
               {loading ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
