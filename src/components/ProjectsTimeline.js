@@ -12,7 +12,7 @@ function ProjectsTimeline() {
   const [viewMode, setViewMode] = useState(ViewMode.Month);
   const [filterBy, setFilterBy] = useState('all');
   const [sortBy, setSortBy] = useState('start_date');
-  const [isChecked, setIsChecked] = useState(true);
+  const [showProgress, setShowProgress] = useState(true);
 
   useEffect(() => {
     fetchProjects();
@@ -90,6 +90,15 @@ function ProjectsTimeline() {
       case 'urgent':
         filtered = filtered.filter(p => p.company_priority <= 5);
         break;
+      case 'at-risk':
+        filtered = filtered.filter(p => {
+          const progress = calculateProjectProgress(p);
+          const today = new Date();
+          const endDate = new Date(p.end_date);
+          const daysRemaining = differenceInDays(endDate, today);
+          return (daysRemaining < 7 && progress < 75) || daysRemaining < 0;
+        });
+        break;
       default:
         break;
     }
@@ -104,6 +113,13 @@ function ProjectsTimeline() {
         break;
       case 'progress':
         filtered.sort((a, b) => calculateProjectProgress(b) - calculateProjectProgress(a));
+        break;
+      case 'duration':
+        filtered.sort((a, b) => {
+          const durationA = differenceInDays(new Date(a.end_date), new Date(a.start_date));
+          const durationB = differenceInDays(new Date(b.end_date), new Date(b.start_date));
+          return durationB - durationA;
+        });
         break;
       default:
         break;
@@ -131,20 +147,21 @@ function ProjectsTimeline() {
         name: project.title,
         id: `project-${project.id}`,
         type: 'task',
-        progress: progress,
+        progress: showProgress ? progress : 0,
         isDisabled: false,
         styles: {
           progressColor: status.color,
           progressSelectedColor: status.color,
           backgroundColor: getPriorityColor(project.company_priority),
           backgroundSelectedColor: getPriorityColor(project.company_priority),
+          borderRadius: 8,
         },
         project: project, // Store the full project data for reference
       };
     });
-  }, [filteredProjects]);
+  }, [filteredProjects, showProgress]);
 
-  // Calculate dashboard stats
+  // Calculate comprehensive dashboard stats
   const totalProjects = filteredProjects.length;
   const activeProjects = filteredProjects.filter(p => {
     const progress = calculateProjectProgress(p);
@@ -152,31 +169,22 @@ function ProjectsTimeline() {
   }).length;
   const completedProjects = filteredProjects.filter(p => calculateProjectProgress(p) >= 90).length;
   const urgentProjects = filteredProjects.filter(p => p.company_priority <= 5).length;
+  const atRiskProjects = filteredProjects.filter(p => {
+    const progress = calculateProjectProgress(p);
+    const today = new Date();
+    const endDate = new Date(p.end_date);
+    const daysRemaining = differenceInDays(endDate, today);
+    return (daysRemaining < 7 && progress < 75) || daysRemaining < 0;
+  }).length;
+  const averageProgress = totalProjects > 0 
+    ? Math.round(filteredProjects.reduce((sum, p) => sum + calculateProjectProgress(p), 0) / totalProjects)
+    : 0;
 
   // Gantt event handlers
   const handleTaskClick = (task) => {
     if (task.project) {
       window.open(`/projects/${task.project.id}`, '_blank');
     }
-  };
-
-  const handleTaskDelete = (task) => {
-    console.log('Task delete requested:', task);
-    // Implement delete functionality if needed
-  };
-
-  const handleProgressChange = async (task) => {
-    console.log('Progress change:', task);
-    // Implement progress update functionality if needed
-  };
-
-  const handleDateChange = async (task) => {
-    console.log('Date change:', task);
-    // Implement date update functionality if needed
-  };
-
-  const handleExpanderClick = (task) => {
-    console.log('Expander click:', task);
   };
 
   if (loading) {
@@ -193,7 +201,7 @@ function ProjectsTimeline() {
 
   return (
     <div className="projects-timeline-page">
-      {/* Hero Section with Key Stats */}
+      {/* Hero Section with Comprehensive KPIs */}
       <div className="timeline-hero">
         <div className="hero-content">
           <div className="hero-text">
@@ -202,7 +210,7 @@ function ProjectsTimeline() {
               Projects Timeline Dashboard
             </h1>
             <p className="timeline-subtitle">
-              Interactive Gantt chart with real-time progress tracking and priority visualization
+              Interactive Gantt chart with real-time progress tracking, priority visualization, and comprehensive project insights
             </p>
           </div>
           
@@ -214,7 +222,7 @@ function ProjectsTimeline() {
           </div>
         </div>
 
-        {/* Key Performance Indicators */}
+        {/* Comprehensive KPI Dashboard */}
         <div className="timeline-stats">
           <div className="stat-card glass highlight">
             <div className="stat-icon-container primary">
@@ -225,7 +233,7 @@ function ProjectsTimeline() {
               <div className="stat-label">Total Projects</div>
               <div className="stat-trend">
                 <span className="trend-icon">📊</span>
-                <span className="trend-text">In timeline</span>
+                <span className="trend-text">In timeline view</span>
               </div>
             </div>
           </div>
@@ -271,10 +279,38 @@ function ProjectsTimeline() {
               </div>
             </div>
           </div>
+
+          <div className="stat-card glass">
+            <div className="stat-icon-container warning">
+              <span className="stat-icon">⚠️</span>
+            </div>
+            <div className="stat-content">
+              <div className="stat-number">{atRiskProjects}</div>
+              <div className="stat-label">At Risk</div>
+              <div className="stat-trend">
+                <span className="trend-icon">🚨</span>
+                <span className="trend-text">Need attention</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="stat-card glass">
+            <div className="stat-icon-container progress">
+              <span className="stat-icon">📊</span>
+            </div>
+            <div className="stat-content">
+              <div className="stat-number">{averageProgress}%</div>
+              <div className="stat-label">Avg Progress</div>
+              <div className="stat-trend">
+                <span className="trend-icon">📈</span>
+                <span className="trend-text">Overall completion</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Gantt Chart Controls */}
+      {/* Enhanced Gantt Chart Controls */}
       <div className="timeline-controls-bar glass">
         <div className="controls-left">
           <div className="view-controls">
@@ -316,8 +352,8 @@ function ProjectsTimeline() {
             <label className="checkbox-label">
               <input
                 type="checkbox"
-                checked={isChecked}
-                onChange={(e) => setIsChecked(e.target.checked)}
+                checked={showProgress}
+                onChange={(e) => setShowProgress(e.target.checked)}
               />
               <span className="checkbox-text">Show Progress Bars</span>
             </label>
@@ -335,6 +371,7 @@ function ProjectsTimeline() {
               <option value="active">Active Projects</option>
               <option value="completed">Near Completion</option>
               <option value="urgent">High Priority (Top 5)</option>
+              <option value="at-risk">At Risk Projects</option>
             </select>
 
             <select 
@@ -345,12 +382,13 @@ function ProjectsTimeline() {
               <option value="start_date">Sort by Start Date</option>
               <option value="priority">Sort by Priority</option>
               <option value="progress">Sort by Progress</option>
+              <option value="duration">Sort by Duration</option>
             </select>
           </div>
         </div>
       </div>
 
-      {/* Main Gantt Chart - The Star of the Show */}
+      {/* MAIN GANTT CHART - The Star of the Show */}
       {filteredProjects.length === 0 ? (
         <div className="empty-state glass">
           <div className="empty-state-content">
@@ -392,6 +430,10 @@ function ProjectsTimeline() {
                   <span className="badge-icon">📊</span>
                   Progress bars show completion
                 </span>
+                <span className="info-badge">
+                  <span className="badge-icon">🎯</span>
+                  Colors indicate priority levels
+                </span>
               </div>
             </div>
           </div>
@@ -400,19 +442,15 @@ function ProjectsTimeline() {
             <Gantt
               tasks={ganttTasks}
               viewMode={viewMode}
-              onDateChange={handleDateChange}
-              onDelete={handleTaskDelete}
-              onProgressChange={handleProgressChange}
               onDoubleClick={handleTaskClick}
-              onExpanderClick={handleExpanderClick}
-              listCellWidth={isChecked ? "200px" : ""}
+              listCellWidth="250px"
               columnWidth={
                 viewMode === ViewMode.Month ? 350 : 
                 viewMode === ViewMode.Week ? 300 : 
                 viewMode === ViewMode.Year ? 400 : 
                 80
               }
-              ganttHeight={Math.max(500, ganttTasks.length * 60 + 150)}
+              ganttHeight={Math.max(600, ganttTasks.length * 70 + 200)}
               barBackgroundColor="#007aff"
               barBackgroundSelectedColor="#5ac8fa"
               barProgressColor="#34c759"
@@ -449,7 +487,7 @@ function ProjectsTimeline() {
                     </div>
                     <div className="tooltip-row">
                       <span className="tooltip-label">Progress:</span>
-                      <span className="tooltip-value">{task.progress}%</span>
+                      <span className="tooltip-value">{calculateProjectProgress(task.project)}%</span>
                     </div>
                     {task.project && (
                       <>
@@ -459,11 +497,15 @@ function ProjectsTimeline() {
                         </div>
                         <div className="tooltip-row">
                           <span className="tooltip-label">Team:</span>
-                          <span className="tooltip-value">{task.project.developers?.length || 0} members</span>
+                          <span className="tooltip-value">{task.project.developers?.length || 0}/{task.project.max_team_members} members</span>
                         </div>
                         <div className="tooltip-row">
                           <span className="tooltip-label">Duration:</span>
                           <span className="tooltip-value">{differenceInDays(task.end, task.start) + 1} days</span>
+                        </div>
+                        <div className="tooltip-row">
+                          <span className="tooltip-label">Status:</span>
+                          <span className="tooltip-value">{getProjectStatus(task.project).label}</span>
                         </div>
                       </>
                     )}
@@ -478,7 +520,7 @@ function ProjectsTimeline() {
         </div>
       )}
 
-      {/* Comprehensive Legend */}
+      {/* Comprehensive Legend & Visual Guide */}
       <div className="timeline-legend glass">
         <div className="legend-section">
           <h4>🎯 Priority Levels</h4>
@@ -564,6 +606,36 @@ function ProjectsTimeline() {
             <div className="legend-item">
               <span>📈</span>
               <span className="legend-label">Switch views: Day/Week/Month/Year</span>
+            </div>
+            <div className="legend-item">
+              <span>🎯</span>
+              <span className="legend-label">Bar colors indicate company priority</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="legend-section">
+          <h4>📈 Key Insights</h4>
+          <div className="legend-items">
+            <div className="legend-item">
+              <span>📊</span>
+              <span className="legend-label">Visual timeline shows project overlaps</span>
+            </div>
+            <div className="legend-item">
+              <span>⚡</span>
+              <span className="legend-label">Filter by status to focus on specific projects</span>
+            </div>
+            <div className="legend-item">
+              <span>🔄</span>
+              <span className="legend-label">Sort by priority, progress, or dates</span>
+            </div>
+            <div className="legend-item">
+              <span>📅</span>
+              <span className="legend-label">Today marker helps track current status</span>
+            </div>
+            <div className="legend-item">
+              <span>🎯</span>
+              <span className="legend-label">Progress bars show real epic completion</span>
             </div>
           </div>
         </div>
